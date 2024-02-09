@@ -1,4 +1,5 @@
 const Attributes = @import("Attributes.zig").Attributes;
+const AttributeEntry = @import("Attributes.zig").AttributeEntry;
 const std = @import("std");
 const assert = std.testing.expect;
 
@@ -20,7 +21,11 @@ test "General Attributes test" {
     try b.set("key2", "value3");
 
     try a.mergeWith(&b);
-    try assert(a.size() == 2);
+    var attributeEntryBuf = try gpalloc.alloc(AttributeEntry, a.size());
+    a.entries(attributeEntryBuf);
+    try assert(std.mem.eql(u8, attributeEntryBuf[0].key, "key1"));
+    try assert(std.mem.eql(u8, attributeEntryBuf[0].value, "value1 value2"));
+    gpalloc.free(attributeEntryBuf);
 
     a.deinit();
     b.deinit();
