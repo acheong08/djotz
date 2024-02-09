@@ -30,5 +30,5 @@ test "General Attributes test" {
     a.deinit();
     b.deinit();
 
-    gpa.deinit();
+    _ = gpa.deinit();
 }
