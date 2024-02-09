@@ -12,10 +12,9 @@ pub const Attributes = struct {
     }
 
     pub fn deinit(self: *Attributes) void {
-        var keyIterator = self.map.keyIterator();
-        while (keyIterator.next()) |key| {
-            const value = self.map.get(key.*) orelse continue;
-            self.allocator.free(value);
+        var mapIt = self.map.iterator();
+        while (mapIt.next()) |entry| {
+            self.allocator.free(entry.value_ptr.*);
         }
         self.map.deinit();
     }
@@ -24,13 +23,8 @@ pub const Attributes = struct {
         return self.map.count();
     }
 
-    pub fn tryGet(self: *const Attributes, key: []const u8) ?[]const u8 {
-        return self.map.get(key);
-    }
-
     pub fn append(self: *Attributes, key: []const u8, value: []const u8) !void {
-        const previous = self.tryGet(key);
-        if (previous) |prev| {
+        if (self.map.get(key)) |prev| {
             // Concatenate the previous value with the new value
             var buf = try self.allocator.alloc(u8, prev.len + value.len + 1);
             _ = try std.fmt.bufPrint(buf, "{s} {s}", .{ prev, value });
@@ -59,16 +53,15 @@ pub const Attributes = struct {
         return self.map.get(key) orelse "";
     }
     pub fn mergeWith(self: *Attributes, other: *const Attributes) !void {
-        var keyIterator = other.map.keyIterator();
-        while (keyIterator.next()) |key| {
-            const value = other.map.get(key.*) orelse continue;
-            try self.set(key.*, value);
+        var mapIt = other.map.iterator();
+        while (mapIt.next()) |entry| {
+            try self.set(entry.key_ptr.*, entry.value_ptr.*);
         }
     }
     pub fn entries(self: *const Attributes, buffer: []AttributeEntry) void {
-        var entriesIter = self.map.iterator();
+        var mapIt = self.map.iterator();
         var i: usize = 0;
-        while (entriesIter.next()) |entry| {
+        while (mapIt.next()) |entry| {
             if (buffer.len <= i) {
                 break;
             }
