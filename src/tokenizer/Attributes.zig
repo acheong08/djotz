@@ -12,6 +12,12 @@ pub const Attributes = struct {
     }
 
     pub fn deinit(self: *Attributes) void {
+        // Loop through the map and free all the values
+        var keys = self.map.keyIterator();
+        while (keys.next()) |key| {
+            const value = self.map.get(key.*) orelse continue;
+            self.allocator.free(value);
+        }
         self.map.deinit();
     }
 
@@ -43,7 +49,7 @@ pub const Attributes = struct {
         return self.map.get(key) orelse "";
     }
     pub fn mergeWith(self: *Attributes, other: *const Attributes) void {
-        const keyIterator = other.map.keyIterator();
+        var keyIterator = other.map.keyIterator();
         while (keyIterator.next()) |key| {
             const value = other.map.get(key) orelse continue;
             try self.set(key, value);
