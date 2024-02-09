@@ -30,8 +30,5 @@ test "General Attributes test" {
     a.deinit();
     b.deinit();
 
-    const status = gpa.deinit();
-    if (status == .leak) {
-        std.debug.print("Memory leak detected\n", .{});
-    }
+    gpa.deinit();
 }
