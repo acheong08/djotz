@@ -7,13 +7,6 @@ test "General Attributes test" {
     var gpalloc = gpa.allocator();
 
     var a = Attributes.init(gpalloc);
-    defer {
-        a.deinit();
-        const status = gpa.deinit();
-        if (status == .leak) {
-            std.debug.print("Memory leak detected\n", .{});
-        }
-    }
 
     try a.set("key1", "value1");
     try assert(a.size() == 1);
@@ -22,4 +15,18 @@ test "General Attributes test" {
     try a.append("key1", "value2");
     try assert(a.size() == 1);
     try assert(std.mem.eql(u8, a.get("key1"), "value1 value2"));
+
+    var b = Attributes.init(gpalloc);
+    try b.set("key2", "value3");
+
+    try a.mergeWith(&b);
+    try assert(a.size() == 2);
+
+    a.deinit();
+    b.deinit();
+
+    const status = gpa.deinit();
+    if (status == .leak) {
+        std.debug.print("Memory leak detected\n", .{});
+    }
 }
