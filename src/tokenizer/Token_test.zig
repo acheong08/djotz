@@ -24,11 +24,7 @@ test "Test range" {
 }
 
 test "Test token" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    var allocator = gpa.allocator();
-
-    var tok = token.Token(isize).init(allocator);
+    var tok = token.Token(isize).init(null, 0, 0);
     defer tok.deinit();
 
     tok.start = 0;

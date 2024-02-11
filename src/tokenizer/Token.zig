@@ -3,20 +3,18 @@ const attributes = @import("Attributes.zig");
 
 pub fn Token(comptime T: type) type {
     return struct {
-        allocator: std.mem.Allocator,
         tokenType: ?T,
-        jumpToPair: isize,
+        jumpToPair: ?isize,
         start: usize,
         end: usize,
         attributes: ?attributes.Attributes,
 
-        pub fn init(allocator: std.mem.Allocator) Token(T) {
+        pub fn init(tokenType: ?T, start: usize, end: usize) Token(T) {
             return .{
-                .allocator = allocator,
-                .tokenType = null,
-                .jumpToPair = 0,
-                .start = 0,
-                .end = 0,
+                .tokenType = tokenType,
+                .jumpToPair = null,
+                .start = start,
+                .end = end,
                 .attributes = null,
             };
         }
