@@ -26,7 +26,7 @@ pub const Attributes = struct {
     pub fn append(self: *Attributes, key: []const u8, value: []const u8) !void {
         if (self.map.get(key)) |prev| {
             // Concatenate the previous value with the new value
-            var buf = try self.allocator.alloc(u8, prev.len + value.len + 1);
+            const buf = try self.allocator.alloc(u8, prev.len + value.len + 1);
             _ = try std.fmt.bufPrint(buf, "{s} {s}", .{ prev, value });
             try self.map.put(key, buf);
             self.allocator.free(prev);
@@ -38,7 +38,7 @@ pub const Attributes = struct {
 
     pub fn set(self: *Attributes, key: []const u8, value: []const u8) !void {
         // Allocate a new copy of `value` so that all values in the map are managed consistently
-        var allocValue = try self.allocator.alloc(u8, value.len);
+        const allocValue = try self.allocator.alloc(u8, value.len);
         @memcpy(allocValue, value);
 
         // Optionally, check if the key exists and deallocate the old value before putting the new one

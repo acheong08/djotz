@@ -25,7 +25,7 @@ test "Attributes" {
     try b.set("key2", "value3");
 
     try a.mergeWith(&b);
-    var attributeEntryBuf = try gpalloc.alloc(AttributeEntry, a.size());
+    const attributeEntryBuf = try gpalloc.alloc(AttributeEntry, a.size());
     a.entries(attributeEntryBuf);
     try assert(std.mem.eql(u8, attributeEntryBuf[0].key, "key1"));
     try assert(std.mem.eql(u8, attributeEntryBuf[0].value, "value1 value2"));
@@ -40,7 +40,7 @@ test "Attributes" {
 test "Token Range" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    var allocator = gpa.allocator();
+    const allocator = gpa.allocator();
     var ranges = token.Ranges.init(allocator);
     defer ranges.deinit();
 

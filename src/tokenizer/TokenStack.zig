@@ -129,7 +129,7 @@ pub fn TokenStack(comptime T: type) type {
         }
 
         pub fn openLevelAt(self: *TokenStack(T), token: Token(T)) !void {
-            var currLvl: ?[]const usize = self.typeLevels.get(token.tokenType);
+            const currLvl: ?[]const usize = self.typeLevels.get(token.tokenType);
             var newLvl: []usize = try self.allocator.alloc(usize, if (currLvl) |scurrLvl| scurrLvl.len + 1 else 1);
             if (currLvl) |scurrLvl| {
                 @memcpy(newLvl, scurrLvl);

@@ -34,7 +34,7 @@ pub fn TokenList(comptime T: type) type {
         pub fn fillUntil(self: *TokenList(T), position: usize, tokenType: T) !void {
             const last = self.lastOrDefault();
             if (self.items.items.len > 0 and last.end < position) {
-                var newToken = Token(T){
+                const newToken = Token(T){
                     .jumpToPair = null,
                     .attributes = null,
                     .start = last.end,
