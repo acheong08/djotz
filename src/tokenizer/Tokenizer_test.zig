@@ -7,6 +7,7 @@ const Token = token.Token(isize);
 const TokenList = @import("TokenList.zig").TokenList;
 const TokenStack = @import("TokenStack.zig").TokenStack;
 const LineTokenizer = @import("LineTokenizer.zig").LineTokenizer;
+const ByteMask = @import("TextReader.zig").ByteMask;
 
 test "Attributes" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -177,4 +178,12 @@ test "Line Tokenizer" {
     try std.testing.expectEqualStrings("!", document[ret.start..ret.end]);
     ret = tokenizer.scan();
     try assert(ret.eof == true);
+}
+
+test "ByteMask.Has" {
+    const set: []const u8 = "Hello";
+    var mask = ByteMask.init(set);
+    try assert(mask.has('H') == true);
+    try assert(mask.has('e') == true);
+    try assert(mask.has('y') == false);
 }
