@@ -183,7 +183,7 @@ test "Line Tokenizer" {
 test "ByteMask.Has" {
     const set: []const u8 = "Hello";
     var mask = ByteMask.init(set);
-    try assert(mask.has('H') == true);
-    try assert(mask.has('e') == true);
-    try assert(mask.has('y') == false);
+    try assert(mask.Has('H') == true);
+    try assert(mask.Has('e') == true);
+    try assert(mask.Has('y') == false);
 }
