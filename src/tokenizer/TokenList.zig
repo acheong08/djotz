@@ -17,23 +17,22 @@ pub fn TokenList(comptime T: type) type {
             self.items.deinit();
         }
 
-        pub fn firstOrDefault(self: *TokenList(T), t: *Token(T)) void {
+        pub fn firstOrDefault(self: *const TokenList(T)) Token(T) {
             if (self.items.items.len == 0) {
-                return;
+                return Token(T).init(0, 0, 0);
             }
-            t.* = self.items.items[0];
+            return self.items.items[0];
         }
 
-        pub fn lastOrDefault(self: *TokenList(T), t: *Token(T)) void {
+        pub fn lastOrDefault(self: *const TokenList(T)) Token(T) {
             if (self.items.items.len == 0) {
-                return;
+                return Token(T).init(0, 0, 0);
             }
-            t.* = self.items.getLast();
+            return self.items.getLast();
         }
 
-        pub fn fillUntil(self: *TokenList(T), position: usize, tokenType: ?T) !void {
-            var last = Token(T).init(null, 0, 0);
-            self.lastOrDefault(&last);
+        pub fn fillUntil(self: *TokenList(T), position: usize, tokenType: T) !void {
+            const last = self.lastOrDefault();
             if (self.items.items.len > 0 and last.end < position) {
                 var newToken = Token(T){
                     .jumpToPair = null,
@@ -47,8 +46,12 @@ pub fn TokenList(comptime T: type) type {
         }
 
         pub fn push(self: *TokenList(T), token: Token(T)) !void {
-            try self.fillUntil(token.start, null);
+            try self.fillUntil(token.start, 0);
             try self.items.append(token);
+        }
+
+        pub fn len(self: *const TokenList(T)) usize {
+            return self.items.items.len;
         }
     };
 }

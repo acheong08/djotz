@@ -4,6 +4,7 @@ const std = @import("std");
 const assert = std.testing.expect;
 const token = @import("Token.zig");
 const TokenList = @import("TokenList.zig").TokenList;
+const TokenStack = @import("TokenStack.zig").TokenStack;
 
 test "Attributes" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -56,7 +57,7 @@ test "Token Range" {
 }
 
 test "Token" {
-    var tok = token.Token(isize).init(null, 0, 0);
+    var tok = token.Token(isize).init(0, 0, 0);
     defer tok.deinit();
 
     tok.start = 0;
@@ -86,7 +87,7 @@ test "TokenList" {
     var expected = try allocator.alloc(token.Token(isize), 3);
     defer allocator.free(expected);
     expected[0] = token.Token(isize).init(1, 0, 1);
-    expected[1] = token.Token(isize).init(null, 1, 10);
+    expected[1] = token.Token(isize).init(0, 1, 10);
     expected[2] = token.Token(isize).init(2, 10, 11);
 
     try assert(tokens.items.items.len == 3);
@@ -94,4 +95,28 @@ test "TokenList" {
     for (0..tokens.items.items.len) |i| {
         try std.testing.expectEqual(expected[i], tokens.items.items[i]);
     }
+}
+
+test "TokenStack 1" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    var allocator = gpa.allocator();
+
+    var stack = TokenStack(isize).init(allocator);
+    defer stack.deinit();
+
+    try stack.openLevelAt(token.Token(isize).init(2, 0, 1));
+    // stack.lastLevelPush(token.Token(isize).init(10, 1, 4));
+    // try stack.closeLevelAt(token.Token(isize).init(2 ^ 1, 10, 11));
+    //
+    // var expected = try allocator.alloc(token.Token(isize), 4);
+    // defer allocator.free(expected);
+    // expected[0] = token.Token(isize).init(2, 0, 1);
+    // expected[0].jumpToPair = 3;
+    // expected[1] = token.Token(isize).init(10, 1, 4);
+    // expected[2] = token.Token(isize).init(0, 4, 10);
+    // expected[3] = token.Token(isize).init(2 ^ 1, 10, 11);
+    // expected[3].jumpToPair = -3;
+    //
+    // try std.testing.expectEqualSlices(token.Token(isize), stack.lastLevel().?.items.items, expected);
 }

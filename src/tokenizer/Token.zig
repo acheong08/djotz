@@ -1,15 +1,27 @@
 const std = @import("std");
 const attributes = @import("Attributes.zig");
 
+fn defaultValue(comptime T: type) T {
+    return if (@typeInfo(T) == .Pointer or @typeInfo(T) == .Optional) {
+        // Use null for pointers and optional types
+        return null;
+    } else if (@typeInfo(T) == .Int or @typeInfo(T) == .Float or @typeInfo(T) == .Bool) {
+        // Use @as to provide a default value for scalar types
+        return @as(T, 0);
+    } else {
+        // Fallback to {} for types that support aggregate initialization
+        return T{};
+    };
+}
 pub fn Token(comptime T: type) type {
     return struct {
-        tokenType: ?T,
+        tokenType: T,
         jumpToPair: ?isize,
         start: usize,
         end: usize,
         attributes: ?attributes.Attributes,
 
-        pub fn init(tokenType: ?T, start: usize, end: usize) Token(T) {
+        pub fn init(tokenType: T, start: usize, end: usize) Token(T) {
             return .{
                 .tokenType = tokenType,
                 .jumpToPair = null,
@@ -30,7 +42,7 @@ pub fn Token(comptime T: type) type {
         }
 
         pub fn isDefault(self: *const Token(T)) bool {
-            return self.tokenType == null;
+            return self.tokenType == defaultValue(T);
         }
 
         pub fn bytes(self: *const Token(T), input: []const u8) []const u8 {
