@@ -92,34 +92,38 @@ pub fn TokenStack(comptime T: type) type {
             }
         }
 
-        pub fn popForget(self: *TokenStack(T)) void {
-            if (self.levels.items.len <= 0) {
-                std.debug.panic("Cannot pop the last level");
+        pub fn popForget(self: *TokenStack(T)) !void {
+            if (self.levels.items.len <= 1) {
+                std.debug.panic("Cannot pop the last level", .{});
             }
-            const typeLvls: ?TokenList(T) = self.typeLevels.get(self.lastLevel().?.firstOrDefault().tokenType);
-            if (typeLvls and typeLvls.?.len() > 0) {
-                self.typeLevels.put(self.lastLevel().?.firstOrDefault().tokenType, typeLvls.?[0 .. typeLvls.?.len() - 1]);
+            const lastLvlType = self.levels.getLast().firstOrDefault().tokenType;
+            const typeLvls: ?[]const usize = self.typeLevels.get(lastLvlType);
+            if (typeLvls) |sTypeLvls| {
+                if (sTypeLvls.len > 0) {
+                    try self.typeLevels.put(lastLvlType, sTypeLvls[0 .. sTypeLvls.len - 1]);
+                }
+                self.allocator.free(sTypeLvls);
             }
-            const popLvl = self.lastLevel();
-            const activeLvl: TokenList(T) = self.levels.pop();
-            defer activeLvl.deinit();
-            for (0..popLvl.?.len()) |i| {
-                const token = popLvl.?.items[i];
+            var popLvl: TokenList(T) = self.levels.pop();
+            defer popLvl.deinit();
+            var activeLvl: *TokenList(T) = self.lastLevel().?;
+            for (1..popLvl.len()) |i| {
+                var token = popLvl.items.items[i];
                 if (token.isDefault()) {
                     continue;
                 }
-                activeLvl.push(token);
+                try activeLvl.push(token);
             }
         }
 
-        pub fn popForgetUntil(self: *TokenStack(T), tokenType: T) bool {
-            const lvls: ?[]const u8 = self.typeLevels.get(tokenType);
-            if (lvls == null or lvls.?.len() == 0) {
+        pub fn popForgetUntil(self: *TokenStack(T), tokenType: T) !bool {
+            const lvls = self.typeLevels.get(tokenType);
+            if (lvls == null or lvls.?.len == 0) {
                 return false;
             }
             const lastLvl = lvls.?[lvls.?.len - 1];
             while (self.levels.items.len > lastLvl + 1) {
-                self.popForget();
+                try self.popForget();
             }
             return true;
         }
