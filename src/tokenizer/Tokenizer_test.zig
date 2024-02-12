@@ -6,6 +6,7 @@ const token = @import("Token.zig");
 const Token = token.Token(isize);
 const TokenList = @import("TokenList.zig").TokenList;
 const TokenStack = @import("TokenStack.zig").TokenStack;
+const LineTokenizer = @import("LineTokenizer.zig").LineTokenizer;
 
 test "Attributes" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -160,4 +161,20 @@ test "TokenStack 2" {
     expected[5].jumpToPair = -5;
 
     try std.testing.expectEqualSlices(Token, expected, stack.lastLevel().?.*.items.items);
+}
+
+test "Line Tokenizer" {
+    const document: []const u8 = "hello\nworld\n!";
+    var tokenizer = LineTokenizer.init(document);
+    var ret = tokenizer.scan();
+    try assert(ret.eof == false);
+    try std.testing.expectEqualStrings("hello\n", document[ret.start..ret.end]);
+    ret = tokenizer.scan();
+    try assert(ret.eof == false);
+    try std.testing.expectEqualStrings("world\n", document[ret.start..ret.end]);
+    ret = tokenizer.scan();
+    try assert(ret.eof == false);
+    try std.testing.expectEqualStrings("!", document[ret.start..ret.end]);
+    ret = tokenizer.scan();
+    try assert(ret.eof == true);
 }
