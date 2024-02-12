@@ -7,15 +7,27 @@ const Open: u8 = 1;
 pub fn TokenStack(comptime T: type) type {
     return struct {
         levels: std.ArrayList(TokenList(T)),
-        typeLevels: std.AutoHashMap(T, []const isize),
+        typeLevels: std.AutoHashMap(T, []const usize),
         allocator: std.mem.Allocator,
 
         pub fn init(allocator: std.mem.Allocator) TokenStack(T) {
-            return TokenStack(T){
+            var ts = TokenStack(T){
                 .levels = std.ArrayList(TokenList(T)).init(allocator),
-                .typeLevels = std.AutoHashMap(T, []const isize).init(allocator),
+                .typeLevels = std.AutoHashMap(T, []const usize).init(allocator),
                 .allocator = allocator,
             };
+            ts.levels.append(TokenList(T).init(allocator)) catch unreachable;
+            return ts;
+        }
+
+        pub fn debugPrintLevels(self: *const TokenStack(T)) void {
+            for (0..self.levels.items.len) |i| {
+                const lvl: TokenList(T) = self.levels.items[i];
+                for (0..lvl.items.items.len) |j| {
+                    const token = lvl.items.items[j];
+                    std.debug.print("\nLevel {any} Token {any} {any}\n", .{ i, j, token });
+                }
+            }
         }
 
         pub fn deinit(self: *TokenStack(T)) void {
@@ -34,23 +46,21 @@ pub fn TokenStack(comptime T: type) type {
             return self.typeLevels.count() == 0 and self.levels.items.len == 0 and self.levels.items[0].items.items.len == 0;
         }
 
-        pub fn lastLevel(self: *const TokenStack(T)) ?TokenList(T) {
-            return self.levels.getLastOrNull();
-        }
-
-        pub fn lastLevelPush(self: *TokenStack(T), token: Token(T)) !void {
-            if (self.levels.items.len == 0) {
-                std.debug.panic("Cannot push to an empty stack", .{});
-            }
-            try self.levels.items[self.levels.items.len - 1].push(token);
+        pub fn lastLevel(self: *const TokenStack(T)) ?*TokenList(T) {
+            return if (self.levels.items.len > 0) {
+                return &self.levels.items[self.levels.items.len - 1];
+            } else {
+                return null;
+            };
         }
 
         pub fn popCommit(self: *TokenStack(T)) !void {
             if (self.levels.items.len == 0) {
                 std.debug.panic("Cannot pop the last level", .{});
             }
-            const popLvl = self.lastLevel().?;
-            var activeLvl: TokenList(T) = self.levels.pop();
+            var popLvl = self.levels.pop();
+            var activeLvl: *TokenList(T) = self.lastLevel().?;
+            defer popLvl.deinit();
 
             var firstPos: usize = 0;
             var lastPos: usize = 0;
@@ -69,14 +79,15 @@ pub fn TokenStack(comptime T: type) type {
             }
             if (popLvl.firstOrDefault().tokenType ^ Open == popLvl.lastOrDefault().tokenType) {
                 var lastLvl: TokenList(T) = self.levels.getLast();
-                const jump = lastPos - firstPos;
-                lastLvl.items.items[lastPos].jumpToPair = @intCast(jump);
-                lastLvl.items.items[firstPos].jumpToPair = -lastLvl.items.items[lastPos].jumpToPair.?;
+                const jump: isize = @intCast(lastPos - firstPos);
+                lastLvl.items.items[firstPos].jumpToPair = jump;
+                lastLvl.items.items[lastPos].jumpToPair = -jump;
             }
-            const typeLvls: ?[]const isize = self.typeLevels.get(popLvl.firstOrDefault().tokenType);
+            const typeLvls: ?[]const usize = self.typeLevels.get(popLvl.firstOrDefault().tokenType);
             if (typeLvls) |stypeLvls| {
                 if (stypeLvls.len > 0) {
                     try self.typeLevels.put(popLvl.firstOrDefault().tokenType, stypeLvls[0 .. stypeLvls.len - 1]);
+                    self.allocator.free(stypeLvls);
                 }
             }
         }
@@ -91,6 +102,7 @@ pub fn TokenStack(comptime T: type) type {
             }
             const popLvl = self.lastLevel();
             const activeLvl: TokenList(T) = self.levels.pop();
+            defer activeLvl.deinit();
             for (0..popLvl.?.len()) |i| {
                 const token = popLvl.?.items[i];
                 if (token.isDefault()) {
@@ -113,21 +125,22 @@ pub fn TokenStack(comptime T: type) type {
         }
 
         pub fn openLevelAt(self: *TokenStack(T), token: Token(T)) !void {
-            var newLvl = try self.allocator.alloc(isize, self.levels.items.len + 1);
-            var currLvl = self.typeLevels.get(token.tokenType);
-            if (currLvl) |lvl| {
-                @memcpy(newLvl, lvl);
-                self.allocator.free(lvl);
+            var currLvl: ?[]const usize = self.typeLevels.get(token.tokenType);
+            var newLvl: []usize = try self.allocator.alloc(usize, if (currLvl) |scurrLvl| scurrLvl.len + 1 else 1);
+            if (currLvl) |scurrLvl| {
+                @memcpy(newLvl, scurrLvl);
+                self.allocator.free(scurrLvl);
             }
             newLvl[newLvl.len - 1] = @intCast(self.levels.items.len);
             try self.typeLevels.put(token.tokenType, newLvl);
 
             var tokenList = TokenList(T).init(self.allocator);
+            try tokenList.push(token);
             try self.levels.append(tokenList);
         }
 
         pub fn closeLevelAt(self: *TokenStack(T), token: Token(T)) !void {
-            try self.lastLevelPush(token);
+            try self.lastLevel().?.push(token);
             try self.popCommit();
         }
     };
