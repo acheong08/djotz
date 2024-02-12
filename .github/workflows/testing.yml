@@ -24,11 +24,8 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
-
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: sudo apt install zig
+      - uses: goto-bus-stop/setup-zig@v2
 
       # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      - name: Run the test
         run: zig build test --summary all
