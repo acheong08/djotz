@@ -38,18 +38,15 @@ pub fn TokenStack(comptime T: type) type {
             return self.levels.getLastOrNull();
         }
 
-        pub fn lastLevelPush(self: *TokenStack(T), token: Token(T)) void {
+        pub fn lastLevelPush(self: *TokenStack(T), token: Token(T)) !void {
             if (self.levels.items.len == 0) {
                 std.debug.panic("Cannot push to an empty stack", .{});
             }
-            var lastLvl: TokenList(T) = self.allocator.dupe(TokenList(T), self.levels.getLast());
-            lastLvl.push(token);
-            self.allocator.free(self.levels.pop());
-            self.levels.append(lastLvl);
+            try self.levels.items[self.levels.items.len - 1].push(token);
         }
 
         pub fn popCommit(self: *TokenStack(T)) !void {
-            if (self.levels.items.len <= 1) {
+            if (self.levels.items.len == 0) {
                 std.debug.panic("Cannot pop the last level", .{});
             }
             const popLvl = self.lastLevel().?;
@@ -130,7 +127,7 @@ pub fn TokenStack(comptime T: type) type {
         }
 
         pub fn closeLevelAt(self: *TokenStack(T), token: Token(T)) !void {
-            self.lastLevelPush(token);
+            try self.lastLevelPush(token);
             try self.popCommit();
         }
     };

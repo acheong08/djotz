@@ -106,8 +106,8 @@ test "TokenStack 1" {
     defer stack.deinit();
 
     try stack.openLevelAt(token.Token(isize).init(2, 0, 1));
-    // stack.lastLevelPush(token.Token(isize).init(10, 1, 4));
-    // try stack.closeLevelAt(token.Token(isize).init(2 ^ 1, 10, 11));
+    try stack.lastLevelPush(token.Token(isize).init(10, 1, 4));
+    try stack.closeLevelAt(token.Token(isize).init(2 ^ 1, 10, 11));
     //
     // var expected = try allocator.alloc(token.Token(isize), 4);
     // defer allocator.free(expected);
