@@ -77,11 +77,11 @@ pub const TextReader = struct {
         return .{ .state = next, .empty = true };
     }
 
-    pub fn mask(self: *const TextReader, state: usize, mmask: ByteMask) struct { state: usize, found: bool } {
+    pub fn mask(self: *const TextReader, state: usize, mmask: ByteMask) struct { state: usize, ok: bool } {
         if (self.hasMask(state, mmask)) {
-            return .{ .state = state + 1, .found = true };
+            return .{ .state = state + 1, .ok = true };
         }
-        return .{ .state = 0, .found = false };
+        return .{ .state = 0, .ok = false };
     }
 
     pub fn isEmpty(self: *const TextReader, state: usize) bool {
@@ -95,11 +95,11 @@ pub const TextReader = struct {
         return mmask.Has(self.doc[state]);
     }
 
-    pub fn token(self: *const TextReader, state: usize, ttoken: []const u8) struct { state: usize, found: bool } {
+    pub fn token(self: *const TextReader, state: usize, ttoken: []const u8) struct { state: usize, ok: bool } {
         if (self.hasToken(state, ttoken)) {
-            return .{ .state = state + ttoken.len, .found = true };
+            return .{ .state = state + ttoken.len, .ok = true };
         }
-        return .{ .state = 0, .found = false };
+        return .{ .state = 0, .ok = false };
     }
 
     pub fn hasToken(self: *const TextReader, state: usize, ttoken: []const u8) bool {

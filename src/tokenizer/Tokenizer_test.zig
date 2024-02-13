@@ -237,19 +237,19 @@ test "TextReader" {
 
     var maskResult = reader.mask(0, ByteMask.init("H"));
     try assert(maskResult.state == 1);
-    try assert(maskResult.found == true);
+    try assert(maskResult.ok == true);
 
     maskResult = reader.mask(0, ByteMask.init("Z"));
     try assert(maskResult.state == 0);
-    try assert(maskResult.found == false);
+    try assert(maskResult.ok == false);
 
     var tokenResult = reader.token(0, "Hello");
     try assert(tokenResult.state == 5);
-    try assert(tokenResult.found == true);
+    try assert(tokenResult.ok == true);
 
     tokenResult = reader.token(0, "World");
     try assert(tokenResult.state == 0);
-    try assert(tokenResult.found == false);
+    try assert(tokenResult.ok == false);
 
     var repeatResult = reader.byteRepeat(0, 'l', 2);
     try assert(repeatResult.state == 0);
