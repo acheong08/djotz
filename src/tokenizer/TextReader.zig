@@ -21,7 +21,7 @@ pub const ByteMask = struct {
         const mask: u64 = 0xFFFFFFFFFFFFFFFF;
         var bmask = ByteMask{ .mask = [_]u64{ 0, 0, 0, 0 } };
         inline for (0..4) |i| {
-            bmask[i] = self.mask[i] ^ mask;
+            bmask.mask[i] = self.mask[i] ^ mask;
         }
         return bmask;
     }
@@ -29,7 +29,7 @@ pub const ByteMask = struct {
     pub fn Or(self: *const ByteMask, other: ByteMask) ByteMask {
         var mask: ByteMask = ByteMask{ .mask = [_]u64{ 0, 0, 0, 0 } };
         inline for (0..4) |i| {
-            mask[i] = self.mask[i] | other.mask[i];
+            mask.mask[i] = self.mask[i] | other.mask[i];
         }
         return mask;
     }
@@ -37,7 +37,7 @@ pub const ByteMask = struct {
     pub fn And(self: *const ByteMask, other: ByteMask) ByteMask {
         var mask: ByteMask = ByteMask{ .mask = [_]u64{ 0, 0, 0, 0 } };
         inline for (0..4) |i| {
-            mask[i] = self.mask[i] & other.mask[i];
+            mask.mask[i] = self.mask[i] & other.mask[i];
         }
         return mask;
     }
@@ -103,37 +103,41 @@ pub const TextReader = struct {
     }
 
     pub fn hasToken(self: *const TextReader, state: usize, ttoken: []const u8) bool {
-        return std.mem.startsWith(self.doc[state..], ttoken);
+        return std.mem.startsWith(u8, self.doc[state..], ttoken);
     }
 
-    pub fn byteRepeat(self: *const TextReader, state: usize, b: u8, minCount: usize) struct { state: usize, min: bool } {
-        while (!self.isEmpty(state)) {
-            if (self.hasByte(state, b)) {
-                state += 1;
-                minCount -= 1;
+    pub fn byteRepeat(self: *const TextReader, state: usize, b: u8, minCount: isize) struct { state: usize, min: bool } {
+        var newState = state;
+        var newMinCount = minCount;
+        while (!self.isEmpty(newState)) {
+            if (self.hasByte(newState, b)) {
+                newState += 1;
+                newMinCount -= 1;
             } else {
                 break;
             }
         }
-        if (minCount <= 0) {
-            return .{ .state = state, .min = true };
+        if (newMinCount <= 0) {
+            return .{ .state = newState, .min = true };
         }
         return .{ .state = 0, .min = false };
     }
 
-    pub fn hasByte(self: *const TextReader, state: usize, mmask: ByteMask) bool {
+    pub fn hasByte(self: *const TextReader, state: usize, b: u8) bool {
         if (self.isEmpty(state)) {
             return false;
         }
-        return mmask.Has(self.doc[state]);
+        return self.doc[state] == b;
     }
 
-    pub fn maskRepeat(self: *const TextReader, state: usize, mmask: ByteMask, minCount: usize) struct { state: usize, min: bool } {
+    pub fn maskRepeat(self: *const TextReader, state: usize, mmask: ByteMask, minCount: isize) struct { state: usize, min: bool } {
+        var newState = state;
+        var newMinCount = minCount;
         while (self.hasMask(state, mmask)) {
-            state += 1;
-            minCount -= 1;
+            newState += 1;
+            newMinCount -= 1;
         }
-        return .{ .state = state, .min = (minCount <= 0) };
+        return .{ .state = newState, .min = (newMinCount <= 0) };
     }
 
     pub fn peek(self: *const TextReader, state: usize) struct { token: u8, ok: bool } {

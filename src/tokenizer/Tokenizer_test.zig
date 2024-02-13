@@ -8,6 +8,8 @@ const TokenList = @import("TokenList.zig").TokenList;
 const TokenStack = @import("TokenStack.zig").TokenStack;
 const LineTokenizer = @import("LineTokenizer.zig").LineTokenizer;
 const ByteMask = @import("TextReader.zig").ByteMask;
+const ByteMaskUnion = @import("TextReader.zig").Union;
+const TextReader = @import("TextReader.zig").TextReader;
 
 test "Attributes" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -180,10 +182,88 @@ test "Line Tokenizer" {
     try assert(ret.eof == true);
 }
 
-test "ByteMask.Has" {
-    const set: []const u8 = "Hello";
-    var mask = ByteMask.init(set);
-    try assert(mask.Has('H') == true);
-    try assert(mask.Has('e') == true);
-    try assert(mask.Has('y') == false);
+test "ByteMask" {
+    var mask = ByteMask.init(&[_]u8{ 1, 2, 3, 4, 5 });
+    try assert(mask.Has(1));
+    try assert(mask.Has(2));
+    try assert(!mask.Has(6));
+
+    var negated = mask.Negate();
+    try assert(!negated.Has(1));
+    try assert(!negated.Has(2));
+    try assert(negated.Has(6));
+
+    var mask2 = ByteMask.init(&[_]u8{ 6, 7, 8, 9, 10 });
+    var orMask = mask.Or(mask2);
+    try assert(orMask.Has(1));
+    try assert(orMask.Has(2));
+    try assert(orMask.Has(6));
+    try assert(orMask.Has(7));
+
+    var andMask = mask.And(mask2);
+    try assert(!andMask.Has(1));
+    try assert(!andMask.Has(2));
+    try assert(!andMask.Has(6));
+    try assert(!andMask.Has(7));
+
+    const mask1 = ByteMask.init(&[_]u8{ 1, 2, 3, 4, 5 });
+    mask2 = ByteMask.init(&[_]u8{ 6, 7, 8, 9, 10 });
+    const mask3 = ByteMask.init(&[_]u8{ 11, 12, 13, 14, 15 });
+
+    var unionMask = ByteMaskUnion(&[_]ByteMask{ mask1, mask2, mask3 });
+
+    try assert(unionMask.Has(1));
+    try assert(unionMask.Has(2));
+    try assert(unionMask.Has(6));
+    try assert(unionMask.Has(7));
+    try assert(unionMask.Has(11));
+    try assert(unionMask.Has(12));
+    try assert(!unionMask.Has(16));
+}
+
+test "TextReader" {
+    var reader = TextReader.init("Hello, World!");
+
+    try std.testing.expectEqualStrings(reader.select(0, 5), "Hello");
+    try std.testing.expectEqualStrings(reader.select(7, 12), "World");
+
+    var result = reader.emptyOrWhiteSpace(0);
+    try assert(result.state == 0);
+    try assert(result.empty == false);
+
+    result = reader.emptyOrWhiteSpace(13);
+    try assert(result.state == 13);
+    try assert(result.empty == true);
+
+    var maskResult = reader.mask(0, ByteMask.init("H"));
+    try assert(maskResult.state == 1);
+    try assert(maskResult.found == true);
+
+    maskResult = reader.mask(0, ByteMask.init("Z"));
+    try assert(maskResult.state == 0);
+    try assert(maskResult.found == false);
+
+    var tokenResult = reader.token(0, "Hello");
+    try assert(tokenResult.state == 5);
+    try assert(tokenResult.found == true);
+
+    tokenResult = reader.token(0, "World");
+    try assert(tokenResult.state == 0);
+    try assert(tokenResult.found == false);
+
+    var repeatResult = reader.byteRepeat(0, 'l', 2);
+    try assert(repeatResult.state == 0);
+    try assert(repeatResult.min == false);
+
+    repeatResult = reader.byteRepeat(2, 'l', 2);
+    try assert(repeatResult.state == 4);
+    try assert(repeatResult.min == true);
+
+    var peekResult = reader.peek(0);
+    try assert(peekResult.token == 'H');
+    try assert(peekResult.ok == true);
+
+    peekResult = reader.peek(13);
+    try assert(peekResult.token == 0);
+    try assert(peekResult.ok == false);
 }
