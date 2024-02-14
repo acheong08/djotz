@@ -130,14 +130,14 @@ pub const TextReader = struct {
         return self.doc[state] == b;
     }
 
-    pub fn maskRepeat(self: *const TextReader, state: usize, mmask: ByteMask, minCount: isize) struct { state: usize, min: bool } {
+    pub fn maskRepeat(self: *const TextReader, state: usize, mmask: ByteMask, minCount: isize) struct { state: usize, ok: bool } {
         var newState = state;
         var newMinCount = minCount;
-        while (self.hasMask(state, mmask)) {
+        while (self.hasMask(newState, mmask)) {
             newState += 1;
             newMinCount -= 1;
         }
-        return .{ .state = newState, .min = (newMinCount <= 0) };
+        return .{ .state = newState, .ok = (newMinCount <= 0) };
     }
 
     pub fn peek(self: *const TextReader, state: usize) struct { token: u8, ok: bool } {
