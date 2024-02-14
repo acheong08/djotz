@@ -55,8 +55,8 @@ pub fn Union(masks: ?[]const ByteMask) ByteMask {
     }
 }
 
-const spaceByteMask = ByteMask.init(" \t");
-const SpaceNewLineByteMask = ByteMask.init(" \t\r\n");
+pub const SpaceByteMask = ByteMask.init(" \t");
+pub const SpaceNewLineByteMask = ByteMask.init(" \t\r\n");
 
 pub const TextReader = struct {
     doc: []const u8,
