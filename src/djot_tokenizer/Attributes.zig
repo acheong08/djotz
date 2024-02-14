@@ -58,80 +58,89 @@ pub fn matchQuotesString(allocator: std.mem.Allocator, reader: TextReader, state
     }
 }
 
-pub fn matchDjotAttribute(allocator: std.mem.Allocator, reader: TextReader, state: usize) !struct { attributes: Attributes, state: usize, ok: bool } {
-    const fail = .{ .attributes = undefined, .state = 0, .ok = false };
-    const tok = reader.token(state, "{");
-    if (!tok.ok) {
-        return fail;
+const matchDjotAttrRetType = struct {
+    state: usize,
+    ok: bool,
+};
+
+pub fn matchDjotAttribute(reader: TextReader, state: usize, attributes: *Attributes) !matchDjotAttrRetType {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+    const startToken = reader.token(state, "{");
+    if (!startToken.ok) {
+        return .{ .state = 0, .ok = false };
     }
-    var attributes = Attributes.init(allocator);
+
+    const fail = .{ .state = 0, .ok = false };
+
     var comment = false;
-    var next = tok.state;
+    var next = startToken.state;
     while (true) {
-        {
-            const ttok = reader.maskRepeat(next, SpaceNewLineByteMask, 0);
-            if (!ttok.ok) {
-                std.debug.panic("MaskRepeat must match because minCount is zero", .{});
-                next = ttok.state;
-            }
+        var mr = reader.maskRepeat(next, SpaceNewLineByteMask, 0);
+        if (!mr.ok) {
+            std.debug.panic("MaskRepeat must match because minCount is zero", .{});
         }
+        next = mr.state;
         if (reader.isEmpty(next)) {
             return fail;
         }
-        var ttok = reader.token(next, "%");
-        if (ttok.ok) {
-            comment = ttok.state != 0;
-            next = ttok.state;
+        const commentToken = reader.token(next, "%");
+        if (commentToken.ok) {
+            comment = !comment;
+            next = commentToken.state;
             continue;
         }
         if (comment) {
             next += 1;
             continue;
         }
-        ttok = reader.token(next, "}");
-        if (ttok.ok) {
-            return .{ .attributes = attributes, .state = ttok.state, .ok = true };
+        const endToken = reader.token(next, "}");
+        if (endToken.ok) {
+            return .{ .state = endToken.state, .ok = true };
         }
 
-        ttok = reader.token(next, ".");
-        if (ttok.ok) {
-            const mr = reader.maskRepeat(ttok.state, masks.AttributeTokenMask, 1);
+        const classToken = reader.token(next, ".");
+        if (classToken.ok) {
+            mr = reader.maskRepeat(classToken.state, masks.AttributeTokenMask, 1);
             if (!mr.ok) {
                 return fail;
             }
-            const className = reader.select(ttok.state, next);
-            attributes.append(DjotAttributeClassKey, className);
+            next = mr.state;
+            const className = reader.select(classToken.state, next);
+            try attributes.append(DjotAttributeClassKey, className);
             continue;
         } else {
-            ttok = reader.token(next, "#");
-            if (ttok.ok) {
-                const mr = reader.maskRepeat(ttok.state, masks.AttributeTokenMask, 1);
+            const idToken = reader.token(next, "#");
+            if (idToken.ok) {
+                mr = reader.maskRepeat(idToken.state, masks.AttributeTokenMask, 1);
                 if (!mr.ok) {
                     return fail;
                 }
-                attributes.append(DjotAttributeIdKey, reader.select(ttok.state, next));
+                next = mr.state;
+                try attributes.set(DjotAttributeIdKey, reader.select(idToken.state, next));
                 continue;
             }
         }
         const startKey = next;
-        var mr = reader.maskRepeat(next, masks.AttributeTokenMask, 1);
+        mr = reader.maskRepeat(next, masks.AttributeTokenMask, 1);
         if (!mr.ok) {
             return fail;
         }
         next = mr.state;
         const endKey = next;
 
-        ttok = reader.token(next, "=");
-        if (!ttok.ok) {
+        const equalityToken = reader.token(next, "=");
+        if (!equalityToken.ok) {
             return fail;
         }
-        next = ttok.state;
+        next = equalityToken.state;
 
         const startValue = next;
 
-        const match = matchQuotesString(allocator, reader, next);
+        const match = try matchQuotesString(allocator, reader, next);
         if (match.ok) {
-            attributes.set(reader.select(startKey, endKey), match.value);
+            try attributes.set(reader.select(startKey, endKey), match.value);
             allocator.free(match.value);
             next = match.state;
         } else {
