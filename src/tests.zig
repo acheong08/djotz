@@ -292,3 +292,23 @@ test "Matched Quoted String" {
         allocator.free(result.value);
     }
 }
+
+test "Unmatched Quoted String" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+    const testValue: type = struct {
+        s: []const u8,
+    };
+    const testValues = [_]testValue{
+        testValue{ .s = "\"hello" },
+        testValue{ .s = "\"hello\\\"" },
+        testValue{ .s = "hello" },
+        testValue{ .s = "`hello`" },
+    };
+    for (testValues) |testVal| {
+        const reader = TextReader.init(testVal.s);
+        const result = try DjotAttributes.matchQuotesString(allocator, reader, 0);
+        try assert(!result.ok);
+    }
+}
