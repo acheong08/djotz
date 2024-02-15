@@ -11,6 +11,7 @@ const ByteMask = @import("tokenizer/TextReader.zig").ByteMask;
 const ByteMaskUnion = @import("tokenizer/TextReader.zig").Union;
 const TextReader = @import("tokenizer/TextReader.zig").TextReader;
 
+// in Zig you can define tests right inside the source code files (they will be stripped from final binary automatically by compiler)
 test "Attributes" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var gpalloc = gpa.allocator();
@@ -171,16 +172,16 @@ test "Line Tokenizer" {
     const document: []const u8 = "hello\nworld\n!";
     var tokenizer = LineTokenizer.init(document);
     var ret = tokenizer.scan();
-    try assert(ret.eof == false);
-    try std.testing.expectEqualStrings("hello\n", document[ret.start..ret.end]);
+    try std.testing.expect(ret != null);
+    try std.testing.expectEqualStrings("hello\n", document[ret.?.start..ret.?.end]);
     ret = tokenizer.scan();
-    try assert(ret.eof == false);
-    try std.testing.expectEqualStrings("world\n", document[ret.start..ret.end]);
+    try std.testing.expect(ret != null);
+    try std.testing.expectEqualStrings("world\n", document[ret.?.start..ret.?.end]);
     ret = tokenizer.scan();
-    try assert(ret.eof == false);
-    try std.testing.expectEqualStrings("!", document[ret.start..ret.end]);
+    try std.testing.expect(ret != null);
+    try std.testing.expectEqualStrings("!", document[ret.?.start..ret.?.end]);
     ret = tokenizer.scan();
-    try assert(ret.eof == true);
+    try std.testing.expect(ret == null);
 }
 
 test "ByteMask" {

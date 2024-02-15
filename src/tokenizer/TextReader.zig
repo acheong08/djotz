@@ -95,14 +95,15 @@ pub const TextReader = struct {
         return mmask.Has(self.doc[state]);
     }
 
-    pub fn token(self: *const TextReader, state: usize, ttoken: []const u8) ?usize {
+    // comptime parameter should be optimized more aggressively by compiler (although LLVM should be able to correctly handle not comptime arg too)
+    pub fn token(self: *const TextReader, state: usize, comptime ttoken: []const u8) ?usize {
         if (self.hasToken(state, ttoken)) {
             return state + ttoken.len;
         }
         return null;
     }
 
-    pub fn hasToken(self: *const TextReader, state: usize, ttoken: []const u8) bool {
+    pub fn hasToken(self: *const TextReader, state: usize, comptime ttoken: []const u8) bool {
         return std.mem.startsWith(u8, self.doc[state..], ttoken);
     }
 
