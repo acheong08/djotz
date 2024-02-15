@@ -1,18 +1,6 @@
 const std = @import("std");
 const attributes = @import("Attributes.zig");
 
-fn defaultValue(comptime T: type) T {
-    return if (@typeInfo(T) == .Pointer or @typeInfo(T) == .Optional) {
-        // Use null for pointers and optional types
-        return null;
-    } else if (@typeInfo(T) == .Int or @typeInfo(T) == .Float or @typeInfo(T) == .Bool) {
-        // Use @as to provide a default value for scalar types
-        return @as(T, 0);
-    } else {
-        // Fallback to {} for types that support aggregate initialization
-        return T{};
-    };
-}
 pub fn Token(comptime T: type) type {
     return struct {
         tokenType: T,
@@ -32,8 +20,8 @@ pub fn Token(comptime T: type) type {
         }
 
         pub fn deinit(self: *Token(T)) void {
-            if (self.attributes != null) {
-                self.attributes.?.deinit();
+            if (self.attributes) |*attrs| {
+                attrs.deinit();
             }
         }
 
@@ -42,7 +30,7 @@ pub fn Token(comptime T: type) type {
         }
 
         pub fn isDefault(self: *const Token(T)) bool {
-            return self.tokenType == defaultValue(T);
+            return self.tokenType == std.mem.zeroes(T);
         }
 
         pub fn bytes(self: *const Token(T), input: []const u8) []const u8 {
@@ -52,9 +40,7 @@ pub fn Token(comptime T: type) type {
         pub fn prefixLength(self: *const Token(T), input: []const u8, b: u8) usize {
             const inputBytes = self.bytes(input);
             var i: usize = 0;
-            while (i < inputBytes.len and inputBytes[i] == b) {
-                i += 1;
-            }
+            while (i < inputBytes.len and inputBytes[i] == b) : (i += 1) {}
             return i;
         }
     };
