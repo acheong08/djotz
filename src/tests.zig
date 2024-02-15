@@ -11,6 +11,7 @@ const ByteMask = @import("tokenizer/TextReader.zig").ByteMask;
 const ByteMaskUnion = @import("tokenizer/TextReader.zig").Union;
 const TextReader = @import("tokenizer/TextReader.zig").TextReader;
 
+// in Zig you can define tests right inside the source code files (they will be stripped from final binary automatically by compiler)
 test "Attributes" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var gpalloc = gpa.allocator();
@@ -171,16 +172,16 @@ test "Line Tokenizer" {
     const document: []const u8 = "hello\nworld\n!";
     var tokenizer = LineTokenizer.init(document);
     var ret = tokenizer.scan();
-    try assert(ret.eof == false);
-    try std.testing.expectEqualStrings("hello\n", document[ret.start..ret.end]);
+    try std.testing.expect(ret != null);
+    try std.testing.expectEqualStrings("hello\n", document[ret.?.start..ret.?.end]);
     ret = tokenizer.scan();
-    try assert(ret.eof == false);
-    try std.testing.expectEqualStrings("world\n", document[ret.start..ret.end]);
+    try std.testing.expect(ret != null);
+    try std.testing.expectEqualStrings("world\n", document[ret.?.start..ret.?.end]);
     ret = tokenizer.scan();
-    try assert(ret.eof == false);
-    try std.testing.expectEqualStrings("!", document[ret.start..ret.end]);
+    try std.testing.expect(ret != null);
+    try std.testing.expectEqualStrings("!", document[ret.?.start..ret.?.end]);
     ret = tokenizer.scan();
-    try assert(ret.eof == true);
+    try std.testing.expect(ret == null);
 }
 
 test "ByteMask" {
@@ -228,45 +229,17 @@ test "TextReader" {
     try std.testing.expectEqualStrings(reader.select(0, 5), "Hello");
     try std.testing.expectEqualStrings(reader.select(7, 12), "World");
 
-    var result = reader.emptyOrWhiteSpace(0);
-    try assert(result.state == 0);
-    try assert(result.empty == false);
+    try std.testing.expectEqual(null, reader.emptyOrWhiteSpace(0));
+    try std.testing.expectEqual(13, reader.emptyOrWhiteSpace(13));
+    try std.testing.expectEqual(1, reader.mask(0, ByteMask.init("H")));
+    try std.testing.expectEqual(null, reader.mask(0, ByteMask.init("Z")));
+    try std.testing.expectEqual(5, reader.token(0, "Hello"));
+    try std.testing.expectEqual(null, reader.token(0, "World"));
+    try std.testing.expectEqual(null, reader.byteRepeat(0, 'l', 2));
+    try std.testing.expectEqual(4, reader.byteRepeat(2, 'l', 2));
 
-    result = reader.emptyOrWhiteSpace(13);
-    try assert(result.state == 13);
-    try assert(result.empty == true);
-
-    var maskResult = reader.mask(0, ByteMask.init("H"));
-    try assert(maskResult.state == 1);
-    try assert(maskResult.ok == true);
-
-    maskResult = reader.mask(0, ByteMask.init("Z"));
-    try assert(maskResult.state == 0);
-    try assert(maskResult.ok == false);
-
-    var tokenResult = reader.token(0, "Hello");
-    try assert(tokenResult.state == 5);
-    try assert(tokenResult.ok == true);
-
-    tokenResult = reader.token(0, "World");
-    try assert(tokenResult.state == 0);
-    try assert(tokenResult.ok == false);
-
-    var repeatResult = reader.byteRepeat(0, 'l', 2);
-    try assert(repeatResult.state == 0);
-    try assert(repeatResult.min == false);
-
-    repeatResult = reader.byteRepeat(2, 'l', 2);
-    try assert(repeatResult.state == 4);
-    try assert(repeatResult.min == true);
-
-    var peekResult = reader.peek(0);
-    try assert(peekResult.token == 'H');
-    try assert(peekResult.ok == true);
-
-    peekResult = reader.peek(13);
-    try assert(peekResult.token == 0);
-    try assert(peekResult.ok == false);
+    try std.testing.expectEqual('H', reader.peek(0));
+    try std.testing.expectEqual(null, reader.peek(13));
 }
 
 const DjotAttributes = @import("djot_tokenizer/Attributes.zig");
@@ -288,9 +261,9 @@ test "Matched Quoted String" {
         const reader = TextReader.init(testVal.s);
         const result = try DjotAttributes.matchQuotesString(allocator, reader, 0);
         // try assert(result.ok);
-        try assert(testVal.s.len == result.state);
-        try std.testing.expectEqualStrings(testVal.value, result.value);
-        allocator.free(result.value);
+        try assert(testVal.s.len == result.?.state);
+        try std.testing.expectEqualStrings(testVal.value, result.?.value);
+        allocator.free(result.?.value);
     }
 }
 
@@ -310,7 +283,7 @@ test "Unmatched Quoted String" {
     for (testValues) |testVal| {
         const reader = TextReader.init(testVal.s);
         const result = try DjotAttributes.matchQuotesString(allocator, reader, 0);
-        try assert(!result.ok);
+        try std.testing.expectEqual(null, result);
     }
 }
 test "Djot Attributes" {
@@ -336,8 +309,7 @@ test "Djot Attributes" {
         const reader = TextReader.init(testVal.s);
         var attributes = Attributes.init(allocator);
         const result = try DjotAttributes.matchDjotAttribute(reader, 0, &attributes);
-        try assert(result.ok);
-        try assert(testVal.s.len == result.state);
+        try assert(testVal.s.len == result.?);
         var iter = attributes.map.iterator();
         while (iter.next()) |entry| {
             try std.testing.expectEqualStrings(testVal.key.?, entry.key_ptr.*);

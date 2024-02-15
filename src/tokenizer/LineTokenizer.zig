@@ -10,18 +10,18 @@ pub const LineTokenizer = struct {
         return .{ .document = document, .docOffset = 0 };
     }
 
-    pub fn scan(self: *LineTokenizer) struct { start: usize, end: usize, eof: bool } {
+    pub fn scan(self: *LineTokenizer) ?struct { start: usize, end: usize } {
         if (self.docOffset >= self.document.len) {
-            return .{ .start = 0, .end = 0, .eof = true };
+            return null;
         }
         const suffix = self.document[self.docOffset..];
         const newLineIndex = std.mem.indexOf(u8, suffix, newLine);
         if (newLineIndex == null) {
-            const ret = .{ .start = self.docOffset, .end = self.document.len, .eof = false };
+            const ret = .{ .start = self.docOffset, .end = self.document.len };
             self.docOffset = self.document.len;
             return ret;
         }
-        const ret = .{ .start = self.docOffset, .end = self.docOffset + newLineIndex.? + 1, .eof = false };
+        const ret = .{ .start = self.docOffset, .end = self.docOffset + newLineIndex.? + 1 };
         self.docOffset += newLineIndex.? + 1;
         return ret;
     }

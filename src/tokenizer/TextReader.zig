@@ -69,19 +69,19 @@ pub const TextReader = struct {
         return self.doc[start..end];
     }
 
-    pub fn emptyOrWhiteSpace(self: *const TextReader, state: usize) struct { state: usize, empty: bool } {
-        const next = self.maskRepeat(state, SpaceNewLineByteMask, 0).state;
+    pub fn emptyOrWhiteSpace(self: *const TextReader, state: usize) ?usize {
+        const next = self.maskRepeat(state, SpaceNewLineByteMask, 0).?;
         if (!self.isEmpty(next)) {
-            return .{ .state = 0, .empty = false };
+            return null;
         }
-        return .{ .state = next, .empty = true };
+        return next;
     }
 
-    pub fn mask(self: *const TextReader, state: usize, mmask: ByteMask) struct { state: usize, ok: bool } {
+    pub fn mask(self: *const TextReader, state: usize, mmask: ByteMask) ?usize {
         if (self.hasMask(state, mmask)) {
-            return .{ .state = state + 1, .ok = true };
+            return state + 1;
         }
-        return .{ .state = 0, .ok = false };
+        return null;
     }
 
     pub fn isEmpty(self: *const TextReader, state: usize) bool {
@@ -95,18 +95,19 @@ pub const TextReader = struct {
         return mmask.Has(self.doc[state]);
     }
 
-    pub fn token(self: *const TextReader, state: usize, ttoken: []const u8) struct { state: usize, ok: bool } {
+    // comptime parameter should be optimized more aggressively by compiler (although LLVM should be able to correctly handle not comptime arg too)
+    pub fn token(self: *const TextReader, state: usize, comptime ttoken: []const u8) ?usize {
         if (self.hasToken(state, ttoken)) {
-            return .{ .state = state + ttoken.len, .ok = true };
+            return state + ttoken.len;
         }
-        return .{ .state = 0, .ok = false };
+        return null;
     }
 
-    pub fn hasToken(self: *const TextReader, state: usize, ttoken: []const u8) bool {
+    pub fn hasToken(self: *const TextReader, state: usize, comptime ttoken: []const u8) bool {
         return std.mem.startsWith(u8, self.doc[state..], ttoken);
     }
 
-    pub fn byteRepeat(self: *const TextReader, state: usize, b: u8, minCount: isize) struct { state: usize, min: bool } {
+    pub fn byteRepeat(self: *const TextReader, state: usize, b: u8, minCount: isize) ?usize {
         var newState = state;
         var newMinCount = minCount;
         while (!self.isEmpty(newState)) {
@@ -118,9 +119,9 @@ pub const TextReader = struct {
             }
         }
         if (newMinCount <= 0) {
-            return .{ .state = newState, .min = true };
+            return newState;
         }
-        return .{ .state = 0, .min = false };
+        return null;
     }
 
     pub fn hasByte(self: *const TextReader, state: usize, b: u8) bool {
@@ -130,20 +131,23 @@ pub const TextReader = struct {
         return self.doc[state] == b;
     }
 
-    pub fn maskRepeat(self: *const TextReader, state: usize, mmask: ByteMask, minCount: isize) struct { state: usize, ok: bool } {
+    pub fn maskRepeat(self: *const TextReader, state: usize, mmask: ByteMask, minCount: isize) ?usize {
         var newState = state;
         var newMinCount = minCount;
         while (self.hasMask(newState, mmask)) {
             newState += 1;
             newMinCount -= 1;
         }
-        return .{ .state = newState, .ok = (newMinCount <= 0) };
+        if (newMinCount > 0) {
+            return null;
+        }
+        return newState;
     }
 
-    pub fn peek(self: *const TextReader, state: usize) struct { token: u8, ok: bool } {
+    pub fn peek(self: *const TextReader, state: usize) ?u8 {
         if (state < self.doc.len) {
-            return .{ .token = self.doc[state], .ok = true };
+            return self.doc[state];
         }
-        return .{ .token = 0, .ok = false };
+        return null;
     }
 };
