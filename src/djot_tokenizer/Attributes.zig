@@ -5,8 +5,8 @@ const Attributes = @import("../tokenizer/Attributes.zig").Attributes;
 const SpaceNewLineByteMask = @import("../tokenizer/TextReader.zig").SpaceNewLineByteMask;
 const masks = @import("BlockToken.zig");
 
-const DjotAttributeClassKey = "class";
-const DjotAttributeIdKey = "id";
+pub const DjotAttributeClassKey = "class";
+pub const DjotAttributeIdKey = "id";
 
 pub fn matchQuotesString(allocator: std.mem.Allocator, reader: TextReader, state: usize) !?struct { value: []const u8, state: usize } {
     const rawBytesMask = ByteMask.init("\\\"").Negate();
