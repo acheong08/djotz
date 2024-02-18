@@ -6,7 +6,7 @@ const minCountError = @import("BlockToken.zig").minCountError;
 
 pub const DollarByteMask = ByteMask.init("$");
 pub const BacktickByteMask = ByteMask.init("`");
-pub const SmartQuoteByteMask = ByteMask.init("\n'\"");
+pub const SmartSymbolByteMask = ByteMask.init("\n'\"");
 pub const AlphaNumericSymbolByteMask = ByteMask.init("+-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
 pub const InlineTokenStartSymbol = ByteMask.init("!\"$'()*+-.:<=>[\\]^_`{|}~").Or(tokenizer.SpaceNewLineByteMask);
 
@@ -68,5 +68,134 @@ fn matchInlineToken(reader: tokenizer.TextReader, state: usize, tokenType: token
             next = reader.maskRepeat(next, tokenizer.SpaceByteMask, 0) orelse return minCountError;
             return reader.token(next, [_]u8{'\n'});
         },
+        tokens.EmphasisInline => {
+            if (reader.token(state, [_]u8{ '{', '_' })) |next| {
+                return next;
+            }
+            const next = reader.token(state, [_]u8{'_'});
+            if (next and !reader.hasMask(next, tokenizer.SpaceNewLineByteMask)) {
+                return next;
+            }
+            return null;
+        },
+        tokens.EmphasisInline ^ 1 => {
+            if (reader.token(state, [_]u8{ '_', '}' })) |next| {
+                return next;
+            }
+            const next = reader.token(state, [_]u8{'_'});
+            if (next and state > 0 and !reader.hasMask(state - 1, tokenizer.SpaceNewLineByteMask)) {
+                return next;
+            }
+            return null;
+        },
+        tokens.StrongInline => {
+            if (reader.token(state, [_]u8{ '{', '*' })) |next| {
+                return next;
+            }
+            const next = reader.token(state, [_]u8{'*'});
+            if (next and !reader.hasMask(next, tokenizer.SpaceNewLineByteMask)) {
+                return next;
+            }
+            return null;
+        },
+        tokens.StrongInline ^ 1 => {
+            if (reader.token(state, [_]u8{ '*', '}' })) |next| {
+                return next;
+            }
+            const next = reader.token(state, [_]u8{'*'});
+            if (next and state > 0 and !reader.hasMask(state - 1, tokenizer.SpaceNewLineByteMask)) {
+                return next;
+            }
+            return null;
+        },
+        tokens.HighlightedInline => {
+            return reader.token(state, [_]u8{ '{', '=' });
+        },
+        tokens.HighlightedInline ^ 1 => {
+            return reader.token(state, [_]u8{ '=', '}' });
+        },
+        tokens.SubscriptInline => {
+            if (reader.token(state, [_]u8{ '{', '~' })) |next| {
+                return next;
+            }
+            return reader.token(state, [_]u8{'~'});
+        },
+        tokens.SubscriptInline ^ 1 => {
+            if (reader.token(state, [_]u8{ '~', '}' })) |next| {
+                return next;
+            }
+            return reader.token(state, [_]u8{'~'});
+        },
+        tokens.SuperscriptInline => {
+            if (reader.token(state, [_]u8{ '{', '^' })) |next| {
+                return next;
+            }
+            return reader.token(state, [_]u8{'^'});
+        },
+        tokens.SuperscriptInline ^ 1 => {
+            if (reader.token(state, [_]u8{ '^', '}' })) |next| {
+                return next;
+            }
+            return reader.token(state, [_]u8{'^'});
+        },
+        tokens.InsertInline => {
+            return reader.token(state, [_]u8{ '{', '+' });
+        },
+        tokens.InsertInline ^ 1 => {
+            return reader.token(state, [_]u8{ '+', '}' });
+        },
+        tokens.DeleteInline => {
+            return reader.token(state, [_]u8{ '{', '-' });
+        },
+        tokens.DeleteInline ^ 1 => {
+            return reader.token(state, [_]u8{ '-', '}' });
+        },
+        tokens.FootnoteReferenceInline => {
+            return reader.token(state, [_]u8{ '[', '^' });
+        },
+        tokens.FootnoteReferenceInline ^ 1 => {
+            return reader.token(state, [_]u8{']'});
+        },
+        tokens.SymbolsInline => {
+            const next = reader.token(state, [_]u8{':'}) orelse return null;
+            const word = reader.maskRepeat(next, AlphaNumericSymbolByteMask, 0);
+            if (word and reader.hasToken(word.?, [_]u8{':'})) {
+                return next;
+            }
+            return null;
+        },
+        tokens.SymbolsInline ^ 1 => {
+            return reader.token(state, [_]u8{':'});
+        },
+        tokens.PipeTableSeparator => {
+            const next = reader.token(state, [_]u8{'|'}) orelse return null;
+            return reader.maskRepeat(next, tokenizer.SpaceByteMask, 0);
+        },
+        tokens.PipeTableSeparator ^ 1 => {
+            const s = reader.maskRepeat(state, tokenizer.SpaceByteMask, 0) orelse return minCountError;
+            if (reader.token(s, [_]u8{'|'})) |next| {
+                if (reader.emptyOrWhiteSpace(next)) {
+                    return next;
+                }
+                return s;
+            }
+            return null;
+        },
+        tokens.SmartSymbolInline => {
+            if (reader.token(state, [_]u8{'{'})) |next| {
+                return next;
+            }
+            if (reader.token(state, SmartSymbolByteMask)) |next| {
+                if (reader.hasToken(next, [_]u8{'}'})) {
+                    return next + 1;
+                }
+                return next;
+            }
+            if (reader.token(state, [3]u8{ '.', '.', '.' })) |next| {
+                return next;
+            }
+            return reader.byteRepeat(state, '-', 2);
+        },
+        else => unreachable,
     }
 }
