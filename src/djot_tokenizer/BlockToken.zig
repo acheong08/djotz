@@ -19,7 +19,7 @@ pub const AttributeTokenMask = tokenizer.Union(&[_]tokenizer.ByteMask{
     tokenizer.ByteMask.init("-_:"),
 });
 
-const minCountError = error{};
+pub const minCountError = error{};
 const string: type = []const u8;
 pub fn matchBlockToken(allocator: std.mem.Allocator, reader: tokenizer.TextReader, initialState: usize, tokenType: tokens) !?struct { token: Token, state: usize } {
     const initState = reader.maskRepeat(initialState, tokenizer.SpaceByteMask, 0) orelse return minCountError;
