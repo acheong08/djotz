@@ -1,7 +1,7 @@
 const std = @import("std");
 const tokenizer = @import("../tokenizer/TextReader.zig");
-const Token = @import("../tokenizer/Token.zig").Token(usize);
 const tokens = @import("Token.zig").tokens;
+const Token = @import("../tokenizer/Token.zig").Token(tokens);
 const blockKeys = @import("Token.zig").blockKeys;
 const DjotAttributeClassKey = @import("Attributes.zig").DjotAttributeClassKey;
 const Attributes = @import("../tokenizer/Attributes.zig").Attributes;
@@ -19,10 +19,9 @@ pub const AttributeTokenMask = tokenizer.Union(&[_]tokenizer.ByteMask{
     tokenizer.ByteMask.init("-_:"),
 });
 
-pub const minCountError = error{};
 const string: type = []const u8;
 pub fn matchBlockToken(allocator: std.mem.Allocator, reader: tokenizer.TextReader, initialState: usize, tokenType: tokens) !?struct { token: Token, state: usize } {
-    const initState = reader.maskRepeat(initialState, tokenizer.SpaceByteMask, 0) orelse return minCountError;
+    const initState = reader.maskRepeat(initialState, tokenizer.SpaceByteMask, 0) orelse return error.MinCountError;
     var next = initState;
     switch (tokenType) {
         tokens.HeadingBlock => {
@@ -50,40 +49,40 @@ pub fn matchBlockToken(allocator: std.mem.Allocator, reader: tokenizer.TextReade
                 else => unreachable,
             }
             next = reader.byteRepeat(next, symbol, 3) orelse return null;
-            next = reader.maskRepeat(next, tokenizer.SpaceByteMask, 0) orelse return minCountError;
-            if (reader.emptyOrWhiteSpace(next)) {
-                return .{ .state = next, .token = Token.init(tokenType, initState, next) };
+            next = reader.maskRepeat(next, tokenizer.SpaceByteMask, 0) orelse return error.MinCountError;
+            if (reader.emptyOrWhiteSpace(next)) |end| {
+                return .{ .state = end, .token = Token.init(tokenType, initState, next) };
             }
             const metaStart = next;
-            next = reader.maskRepeat(next, NotSpaceByteMask, 1) orelse return minCountError;
+            next = reader.maskRepeat(next, NotSpaceByteMask, 1) orelse return error.MinCountError;
             const metaEnd = next;
 
             next = reader.emptyOrWhiteSpace(next) orelse return null;
 
             var token = Token.init(tokenType, initState, next);
-            token.attributes = try Attributes.init(allocator);
-            token.attributes.?.set(attributeKey, reader.select(metaStart, metaEnd));
-            return token;
+            token.attributes = Attributes.init(allocator);
+            try token.attributes.?.set(attributeKey, reader.select(metaStart, metaEnd));
+            return .{ .token = token, .state = next };
         },
         tokens.ReferenceDefBlock, tokens.FootnoteDefBlock => {
-            next = reader.maskRepeat(next, ThematicBreakByteMask, 0) orelse return minCountError;
+            next = reader.maskRepeat(next, ThematicBreakByteMask, 0) orelse return error.MinCountError;
             if (!reader.isEmpty(next)) {
                 return null;
             }
-            if (std.mem.count(u8, reader.doc[initialState..next], '*' < 3 and std.mem.count(u8, reader.doc[initialState..next], '-') < 3)) {
+            if (std.mem.count(u8, reader.doc[initialState..next], "*") < 3 and std.mem.count(u8, reader.doc[initialState..next], "-") < 3) {
                 return null;
             }
             return .{ .state = next, .token = Token.init(tokenType, initState, next) };
         },
         tokens.ListItemBlock => {
-            for ([_]string{ "- [ ] ", "- [x] ", "- [X] ", "+ ", "* ", "- ", ": " }) |simpleToken| {
+            inline for ([_]string{ "- [ ] ", "- [x] ", "- [X] ", "+ ", "* ", "- ", ": " }) |simpleToken| {
                 if (reader.token(next, simpleToken)) |simple| {
                     return .{ .state = simple, .token = Token.init(tokenType, initialState, simple) };
                 }
             }
             for ([_]tokenizer.ByteMask{ DigitByteMask, LowerAlphaByteMask, UpperAlphaByteMask }) |complexTokenMask| {
                 var complexNext = next;
-                const parenOpen = reader.token(next, '(');
+                const parenOpen = reader.token(next, "(");
                 if (parenOpen) |open| {
                     complexNext = open;
                 }
