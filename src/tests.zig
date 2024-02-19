@@ -10,6 +10,19 @@ const LineTokenizer = @import("tokenizer/LineTokenizer.zig").LineTokenizer;
 const ByteMask = @import("tokenizer/TextReader.zig").ByteMask;
 const ByteMaskUnion = @import("tokenizer/TextReader.zig").Union;
 const TextReader = @import("tokenizer/TextReader.zig").TextReader;
+pub const DjotBlockToken = @import("djot_tokenizer/BlockToken.zig");
+pub const DjotInlineToken = @import("djot_tokenizer/InlineToken.zig");
+pub const DjotToken = @import("djot_tokenizer/Token.zig");
+
+test "ref" {
+    std.testing.refAllDeclsRecursive(DjotAttributes);
+    std.testing.refAllDeclsRecursive(DjotBlockToken);
+    std.testing.refAllDeclsRecursive(DjotInlineToken);
+    std.testing.refAllDeclsRecursive(DjotToken);
+    std.testing.refAllDeclsRecursive(Attributes);
+    std.testing.refAllDeclsRecursive(LineTokenizer);
+    std.testing.refAllDeclsRecursive(TextReader);
+}
 
 // in Zig you can define tests right inside the source code files (they will be stripped from final binary automatically by compiler)
 test "Attributes" {
