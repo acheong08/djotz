@@ -1,7 +1,7 @@
 const std = @import("std");
 const TextReader = @import("../tokenizer/TextReader.zig").TextReader;
 const ByteMask = @import("../tokenizer/TextReader.zig").ByteMask;
-const Attributes = @import("../tokenizer/Attributes.zig").Attributes;
+pub const Attributes = @import("../tokenizer/Attributes.zig").Attributes;
 const SpaceNewLineByteMask = @import("../tokenizer/TextReader.zig").SpaceNewLineByteMask;
 const masks = @import("BlockToken.zig");
 

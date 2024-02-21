@@ -1,6 +1,15 @@
 const std = @import("std");
 const Token = @import("Token.zig").Token;
 
+fn defaultValue(comptime T: type) T {
+    // Check if T is an enum
+    if (@typeInfo(T) == .Enum) {
+        return @enumFromInt(0);
+    } else {
+        return 0;
+    }
+}
+
 pub fn TokenList(comptime T: type) type {
     return struct {
         allocator: std.mem.Allocator,
@@ -19,14 +28,14 @@ pub fn TokenList(comptime T: type) type {
 
         pub fn firstOrDefault(self: *const TokenList(T)) Token(T) {
             if (self.items.items.len == 0) {
-                return Token(T).init(0, 0, 0);
+                return Token(T).init(defaultValue(T), 0, 0);
             }
             return self.items.items[0];
         }
 
         pub fn lastOrDefault(self: *const TokenList(T)) Token(T) {
             if (self.items.items.len == 0) {
-                return Token(T).init(0, 0, 0);
+                return Token(T).init(defaultValue(T), 0, 0);
             }
             return self.items.getLast();
         }
@@ -46,7 +55,7 @@ pub fn TokenList(comptime T: type) type {
         }
 
         pub fn push(self: *TokenList(T), token: Token(T)) !void {
-            try self.fillUntil(token.start, 0);
+            try self.fillUntil(token.start, defaultValue(T));
             try self.items.append(token);
         }
 

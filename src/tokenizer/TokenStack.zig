@@ -4,6 +4,13 @@ const Token = @import("Token.zig").Token;
 
 const Open: u8 = 1;
 
+fn opposite(comptime T: type, tokenType: T) T {
+    if (@typeInfo(T) == .Enum) {
+        return @enumFromInt(@intFromEnum(tokenType) ^ Open);
+    }
+    return tokenType ^ Open;
+}
+
 pub fn TokenStack(comptime T: type) type {
     return struct {
         levels: std.ArrayList(TokenList(T)),
@@ -77,7 +84,7 @@ pub fn TokenStack(comptime T: type) type {
                     lastPos = activeLvl.len() - 1;
                 }
             }
-            if (popLvl.firstOrDefault().tokenType ^ Open == popLvl.lastOrDefault().tokenType) {
+            if (opposite(T, popLvl.firstOrDefault().tokenType) == popLvl.lastOrDefault().tokenType) {
                 var lastLvl: TokenList(T) = self.levels.getLast();
                 const jump: isize = @intCast(lastPos - firstPos);
                 lastLvl.items.items[firstPos].jumpToPair = jump;
@@ -132,7 +139,7 @@ pub fn TokenStack(comptime T: type) type {
             const currLvl: ?[]const usize = self.typeLevels.get(token.tokenType);
             var newLvl: []usize = try self.allocator.alloc(usize, if (currLvl) |scurrLvl| scurrLvl.len + 1 else 1);
             if (currLvl) |scurrLvl| {
-                @memcpy(newLvl, scurrLvl);
+                std.mem.copyForwards(usize, newLvl, scurrLvl);
                 self.allocator.free(scurrLvl);
             }
             newLvl[newLvl.len - 1] = @intCast(self.levels.items.len);

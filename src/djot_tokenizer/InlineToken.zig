@@ -13,6 +13,15 @@ pub const InlineTokenStartSymbol = ByteMask.init("!\"$'()*+-.:<=>[\\]^_`{|}~").O
 
 const RecordStartSymbol = true;
 
+pub fn MatchInlineToken(reader: tokenizer.TextReader, state: usize, tokenType: Tokens.tokens) !?usize {
+    const newState = try matchInlineToken(reader, state, tokenType);
+    if (RecordStartSymbol and newState != null and !reader.isEmpty(state)) {
+        // TODO: record the start symbol
+
+    }
+    return newState;
+}
+
 fn matchInlineToken(reader: tokenizer.TextReader, state: usize, tokenType: tokens) !?usize {
     switch (tokenType) {
         tokens.RawFormatInline => {
@@ -22,7 +31,7 @@ fn matchInlineToken(reader: tokenizer.TextReader, state: usize, tokenType: token
             return reader.token(state, "}");
         },
         tokens.VerbatimInline => {
-            const next = reader.maskRepeat(state, DollarByteMask, 1) orelse return error.MinCountError;
+            const next = reader.maskRepeat(state, DollarByteMask, 0) orelse return error.MinCountError;
             if ((next - state) > 2) {
                 return null;
             }

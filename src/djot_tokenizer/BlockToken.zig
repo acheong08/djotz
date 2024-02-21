@@ -2,7 +2,7 @@ const std = @import("std");
 const tokenizer = @import("../tokenizer/TextReader.zig");
 const tokens = @import("Token.zig").tokens;
 const Token = @import("../tokenizer/Token.zig").Token(tokens);
-const blockKeys = @import("Token.zig").blockKeys;
+// const blockKeys = @import("Token.zig").blockKeys;
 const DjotAttributeClassKey = @import("Attributes.zig").DjotAttributeClassKey;
 const Attributes = @import("../tokenizer/Attributes.zig").Attributes;
 

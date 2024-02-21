@@ -13,6 +13,7 @@ const TextReader = @import("tokenizer/TextReader.zig").TextReader;
 pub const DjotBlockToken = @import("djot_tokenizer/BlockToken.zig");
 pub const DjotInlineToken = @import("djot_tokenizer/InlineToken.zig");
 pub const DjotToken = @import("djot_tokenizer/Token.zig");
+const BuildInlineDjotTokens = @import("djot_tokenizer/DjotTokenizer.zig").BuildInlineDjotTokens;
 
 test "ref" {
     std.testing.refAllDeclsRecursive(DjotAttributes);
@@ -329,5 +330,19 @@ test "Djot Attributes" {
             try std.testing.expectEqualStrings(testVal.value.?, entry.value_ptr.*);
         }
         attributes.deinit();
+    }
+}
+
+test "BuildInlineDjotTokens" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+    var parts = std.ArrayList(token.Range).init(allocator);
+    defer parts.deinit();
+    var tokens = std.ArrayList(token.Token(DjotToken.tokens)).init(allocator);
+    defer tokens.deinit();
+    try BuildInlineDjotTokens(allocator, "___abc___", &parts, &tokens);
+    for (tokens.items) |tok| {
+        std.debug.print("{}\n", .{tok.tokenType});
     }
 }

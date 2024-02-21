@@ -1,18 +1,18 @@
 const std = @import("std");
 
-// pub const DivClassKey = "$DivClassKey";
-// pub const CodeLangKey = "$CodeLangKey";
-// pub const InlineMathKey = "$InlineMathKey";
-// pub const DisplayMathKey = "$DisplayMathKey";
-// pub const ReferenceKey = "$ReferenceKey";
+pub const DivClassKey = "$DivClassKey";
+pub const CodeLangKey = "$CodeLangKey";
+pub const InlineMathKey = "$InlineMathKey";
+pub const DisplayMathKey = "$DisplayMathKey";
+pub const ReferenceKey = "$ReferenceKey";
 
-pub const blockKeys = enum {
-    DivClassKey,
-    CodeLangKey,
-    InlineMathKey,
-    DisplayMathKey,
-    ReferenceKey,
-};
+// pub const blockKeys = enum {
+//     DivClassKey,
+//     CodeLangKey,
+//     InlineMathKey,
+//     DisplayMathKey,
+//     ReferenceKey,
+// };
 
 fn tokenEnum(names: anytype) type {
     var fields: [2 + names.len * 2]std.builtin.Type.EnumField = undefined;
