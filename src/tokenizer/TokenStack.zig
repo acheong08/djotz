@@ -27,16 +27,6 @@ pub fn TokenStack(comptime T: type) type {
             return ts;
         }
 
-        pub fn debugPrintLevels(self: *const TokenStack(T)) void {
-            for (0..self.levels.items.len) |i| {
-                const lvl: TokenList(T) = self.levels.items[i];
-                for (0..lvl.items.items.len) |j| {
-                    const token = lvl.items.items[j];
-                    std.debug.print("\nLevel {any} Token {any} {any}\n", .{ i, j, token });
-                }
-            }
-        }
-
         pub fn deinit(self: *TokenStack(T)) void {
             var typIter = self.typeLevels.iterator();
             while (typIter.next()) |lvl| {
@@ -108,8 +98,8 @@ pub fn TokenStack(comptime T: type) type {
             if (typeLvls) |sTypeLvls| {
                 if (sTypeLvls.len > 0) {
                     try self.typeLevels.put(lastLvlType, sTypeLvls[0 .. sTypeLvls.len - 1]);
+                    self.allocator.free(sTypeLvls);
                 }
-                self.allocator.free(sTypeLvls);
             }
             var popLvl: TokenList(T) = self.levels.pop();
             defer popLvl.deinit();
@@ -136,6 +126,8 @@ pub fn TokenStack(comptime T: type) type {
         }
 
         pub fn openLevelAt(self: *TokenStack(T), token: Token(T)) !void {
+            std.debug.print("Opening level at token: {}\t", .{@intFromEnum(token.tokenType)});
+            std.debug.print("Start {} End {}\n", .{ token.start, token.end });
             const currLvl: ?[]const usize = self.typeLevels.get(token.tokenType);
             var newLvl: []usize = try self.allocator.alloc(usize, if (currLvl) |scurrLvl| scurrLvl.len + 1 else 1);
             if (currLvl) |scurrLvl| {

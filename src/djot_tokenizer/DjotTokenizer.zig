@@ -21,19 +21,14 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, part
     const rightDocumentPosition = parts.items[parts.items.len - 1].end;
     try tokenStack.openLevelAt(Token.init(Tokens.ParagraphBlock, leftDocumentPosition, leftDocumentPosition));
 
-    var inlineParsingLoop = true;
-
     var reader = TextReader.init(doc);
     var state = parts.items[0].start;
     try tokenStack.lastLevel().?.fillUntil(parts.items[0].start, Tokens.Ignore);
     for (parts.items) |part| {
-        if (inlineParsingLoop == true) {
-            reader = TextReader.init(doc);
-            state = part.start;
-            try tokenStack.lastLevel().?.fillUntil(parts.items[0].start, Tokens.Ignore);
-        }
-        inlineParsingLoop = true;
-        while (!reader.isEmpty(state)) {
+        reader = TextReader.init(doc);
+        state = part.start;
+        try tokenStack.lastLevel().?.fillUntil(parts.items[0].start, Tokens.Ignore);
+        inlineParsingLoop: while (!reader.isEmpty(state)) {
             const openInline = tokenStack.lastLevel().?.firstOrDefault();
             const openInlineType = openInline.tokenType;
             const lastInline = tokenStack.lastLevel().?.lastOrDefault();
@@ -70,8 +65,7 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, part
                 if (try matchInlineToken(reader, state, tokenType)) |next| {
                     try tokenStack.lastLevel().?.push(Token.init(tokenType, state, next));
                     state = next;
-                    inlineParsingLoop = false;
-                    break;
+                    continue :inlineParsingLoop;
                 }
             }
             for ([_]Tokens{
@@ -93,13 +87,13 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, part
                 Tokens.SymbolsInline,
                 Tokens.PipeTableSeparator,
             }) |tokenType| {
-                const next = try matchInlineToken(reader, state, Opposite(tokenType));
+                var next = try matchInlineToken(reader, state, Opposite(tokenType));
+                std.debug.print("state: {any}, next: {any}\n", .{ state, next });
                 const forbidClose = ((tokenType == Tokens.EmphasisInline and lastInline.tokenType == Tokens.EmphasisInline) or (tokenType == Tokens.StrongInline and lastInline.tokenType == Tokens.StrongInline)) and lastInline.end == state;
                 if (!forbidClose and next != null and try tokenStack.popForgetUntil(tokenType)) {
                     try tokenStack.closeLevelAt(Token.init(Opposite(tokenType), state, next.?));
                     state = next.?;
-                    inlineParsingLoop = false;
-                    break;
+                    continue :inlineParsingLoop;
                 }
                 if (tokenType == Tokens.RawFormatInline and lastInline.tokenType != Opposite(Tokens.VerbatimInline)) {
                     continue;
@@ -107,9 +101,10 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, part
                 if ((tokenType == Tokens.LinkReferenceInline or tokenType == Tokens.LinkUrlInline) and lastInline.tokenType != Opposite(Tokens.SpanInline) and lastInline.tokenType != Opposite(Tokens.ImageSpanInline)) {
                     continue;
                 }
-                if (try matchInlineToken(reader, state, tokenType)) |nnext| {
+                next = try matchInlineToken(reader, state, tokenType);
+                if (next != null) {
                     attributes = Attributes.init(allocator);
-                    const token = reader.doc[state..nnext];
+                    const token = reader.doc[state..next.?];
                     if (tokenType == Tokens.VerbatimInline) {
                         if (std.mem.startsWith(u8, token, "$$")) {
                             try attributes.set(djotToken.DisplayMathKey, "");
@@ -117,12 +112,12 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, part
                             try attributes.set(djotToken.InlineMathKey, "");
                         }
                     }
-                    var tok = Token.init(tokenType, state, nnext);
+                    var tok = Token.init(tokenType, state, next.?);
                     tok.attributes = attributes;
                     try tokenStack.openLevelAt(tok);
-                    state = nnext;
-                    inlineParsingLoop = false;
-                    break;
+                    state = next.?;
+                    std.debug.print("Set state to {any}\n", .{state});
+                    continue :inlineParsingLoop;
                 }
             }
             state += 1;
