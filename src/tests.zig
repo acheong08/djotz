@@ -336,7 +336,9 @@ const BuildInlineDjotTokens = @import("djot_tokenizer/DjotTokenizer.zig").BuildI
 test "BuildInlineDjotTokens" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+    var arena = std.heap.ArenaAllocator.init(gpa.allocator());
+    defer _ = arena.deinit();
+    const allocator = arena.allocator();
     var parts = std.ArrayList(token.Range).init(allocator);
     defer parts.deinit();
     var tokens = std.ArrayList(token.Token(DjotToken.tokens)).init(allocator);

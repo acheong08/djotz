@@ -126,8 +126,6 @@ pub fn TokenStack(comptime T: type) type {
         }
 
         pub fn openLevelAt(self: *TokenStack(T), token: Token(T)) !void {
-            std.debug.print("Opening level at token: {}\t", .{@intFromEnum(token.tokenType)});
-            std.debug.print("Start {} End {}\n", .{ token.start, token.end });
             const currLvl: ?[]const usize = self.typeLevels.get(token.tokenType);
             var newLvl: []usize = try self.allocator.alloc(usize, if (currLvl) |scurrLvl| scurrLvl.len + 1 else 1);
             if (currLvl) |scurrLvl| {
