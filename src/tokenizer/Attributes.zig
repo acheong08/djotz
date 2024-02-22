@@ -2,12 +2,12 @@ const std = @import("std");
 
 pub const Attributes = struct {
     allocator: std.mem.Allocator,
-    map: std.StringHashMap([]const u8),
+    map: std.StringHashMapUnmanaged([]const u8),
 
     pub fn init(alloc: std.mem.Allocator) Attributes {
         return Attributes{
             .allocator = alloc,
-            .map = std.StringHashMap([]const u8).init(alloc),
+            .map = std.StringHashMapUnmanaged([]const u8){},
         };
     }
 
@@ -16,19 +16,21 @@ pub const Attributes = struct {
         while (mapIt.next()) |entry| {
             self.allocator.free(entry.value_ptr.*);
         }
-        self.map.deinit();
+        self.map.deinit(self.allocator);
     }
 
     pub fn size(self: *const Attributes) usize {
         return self.map.count();
     }
 
-    pub fn append(self: *Attributes, key: []const u8, value: []const u8) !void {
+    // If the key needs to be determined at runtime, remember to make sure it
+    // outlives the lifetime of this function.
+    pub fn append(self: *Attributes, comptime key: []const u8, value: []const u8) !void {
         if (self.map.get(key)) |prev| {
             // Concatenate the previous value with the new value
             const buf = try self.allocator.alloc(u8, prev.len + value.len + 1);
             _ = try std.fmt.bufPrint(buf, "{s} {s}", .{ prev, value });
-            try self.map.put(key, buf);
+            try self.map.put(self.allocator, key, buf);
             self.allocator.free(prev);
         } else {
             try self.set(key, value);
@@ -46,7 +48,7 @@ pub const Attributes = struct {
             self.allocator.free(oldValue);
         }
 
-        try self.map.put(key, allocValue);
+        try self.map.put(self.allocator, key, allocValue);
     }
 
     pub fn get(self: *const Attributes, key: []const u8) []const u8 {
