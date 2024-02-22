@@ -19,9 +19,9 @@ pub fn Token(comptime T: type) type {
             };
         }
 
-        pub fn deinit(self: *Token(T)) void {
+        pub fn deinit(self: *Token(T), allocator: std.mem.Allocator) void {
             if (self.attributes) |*attrs| {
-                attrs.deinit();
+                attrs.deinit(allocator);
             }
         }
 

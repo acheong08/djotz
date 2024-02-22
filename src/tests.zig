@@ -30,29 +30,29 @@ test "Attributes" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     var gpalloc = gpa.allocator();
 
-    var a = Attributes.init(gpalloc);
+    var a = Attributes.init();
 
-    try a.set("key1", "value1");
+    try a.set(gpalloc, "key1", "value1");
     try assert(a.size() == 1);
     try assert(std.mem.eql(u8, a.get("key1"), "value1"));
 
-    try a.append("key1", "value2");
+    try a.append(gpalloc, "key1", "value2");
     try assert(a.size() == 1);
     try assert(std.mem.eql(u8, a.get("key1"), "value1 value2"));
 
-    var b = Attributes.init(gpalloc);
-    try b.set("key2", "value3");
-    try b.set("key2", "value4");
+    var b = Attributes.init();
+    try b.set(gpalloc, "key2", "value3");
+    try b.set(gpalloc, "key2", "value4");
 
-    try a.mergeWith(&b);
+    try a.mergeWith(gpalloc, &b);
     const attributeEntryBuf = try gpalloc.alloc(AttributeEntry, a.size());
     a.entries(attributeEntryBuf);
     try assert(std.mem.eql(u8, attributeEntryBuf[0].key, "key1"));
     try assert(std.mem.eql(u8, attributeEntryBuf[0].value, "value1 value2"));
     gpalloc.free(attributeEntryBuf);
 
-    a.deinit();
-    b.deinit();
+    a.deinit(gpalloc);
+    b.deinit(gpalloc);
 
     _ = gpa.deinit();
 }
@@ -78,8 +78,11 @@ test "Token Range" {
 }
 
 test "Token" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
     var tok = Token.init(0, 0, 0);
-    defer tok.deinit();
+    defer tok.deinit(allocator);
 
     tok.start = 0;
     tok.end = 3;
@@ -321,15 +324,15 @@ test "Djot Attributes" {
     };
     for (testValues) |testVal| {
         const reader = TextReader.init(testVal.s);
-        var attributes = Attributes.init(allocator);
-        const result = try DjotAttributes.matchDjotAttribute(reader, 0, &attributes);
+        var attributes = Attributes.init();
+        const result = try DjotAttributes.matchDjotAttribute(allocator, reader, 0, &attributes);
         try assert(testVal.s.len == result.?);
         var iter = attributes.map.iterator();
         while (iter.next()) |entry| {
             try std.testing.expectEqualStrings(testVal.key.?, entry.key_ptr.*);
             try std.testing.expectEqualStrings(testVal.value.?, entry.value_ptr.*);
         }
-        attributes.deinit();
+        attributes.deinit(allocator);
     }
 }
 

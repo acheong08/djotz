@@ -57,10 +57,7 @@ pub fn matchQuotesString(allocator: std.mem.Allocator, reader: TextReader, state
     }
 }
 
-pub fn matchDjotAttribute(reader: TextReader, state: usize, attributes: *Attributes) !?usize {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+pub fn matchDjotAttribute(allocator: std.mem.Allocator, reader: TextReader, state: usize, attributes: *Attributes) !?usize {
     const startToken = reader.token(state, "{");
     if (startToken == null) {
         return null;
@@ -100,7 +97,7 @@ pub fn matchDjotAttribute(reader: TextReader, state: usize, attributes: *Attribu
             }
             next = mr.?;
             const className = reader.select(classToken.?, next);
-            try attributes.append(DjotAttributeClassKey, className);
+            try attributes.append(allocator, DjotAttributeClassKey, className);
             continue;
         } else {
             const idToken = reader.token(next, "#");
@@ -110,7 +107,7 @@ pub fn matchDjotAttribute(reader: TextReader, state: usize, attributes: *Attribu
                     return null;
                 }
                 next = mr.?;
-                try attributes.set(DjotAttributeIdKey, reader.select(idToken.?, next));
+                try attributes.set(allocator, DjotAttributeIdKey, reader.select(idToken.?, next));
                 continue;
             }
         }
@@ -132,7 +129,7 @@ pub fn matchDjotAttribute(reader: TextReader, state: usize, attributes: *Attribu
 
         const match = try matchQuotesString(allocator, reader, next);
         if (match != null) {
-            try attributes.set(reader.select(startKey, endKey), match.?.value);
+            try attributes.set(allocator, reader.select(startKey, endKey), match.?.value);
             allocator.free(match.?.value);
             next = match.?.state;
         } else {
@@ -141,7 +138,7 @@ pub fn matchDjotAttribute(reader: TextReader, state: usize, attributes: *Attribu
                 return null;
             }
             next = mr.?;
-            try attributes.set(reader.select(startKey, endKey), reader.select(startValue, next));
+            try attributes.set(allocator, reader.select(startKey, endKey), reader.select(startValue, next));
         }
     }
 }

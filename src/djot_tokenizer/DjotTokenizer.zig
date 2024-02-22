@@ -48,8 +48,8 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, part
                 state = next;
                 continue;
             }
-            var attributes = Attributes.init(allocator);
-            if (try matchDjotAttribute(reader, state, &attributes)) |next| {
+            var attributes = Attributes.init();
+            if (try matchDjotAttribute(allocator, reader, state, &attributes)) |next| {
                 var tok = Token.init(Tokens.Attribute, state, next);
                 tok.attributes = attributes;
                 try tokenStack.lastLevel().?.push(tok);
@@ -102,13 +102,13 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, part
                 }
                 next = try matchInlineToken(reader, state, tokenType);
                 if (next != null) {
-                    attributes = Attributes.init(allocator);
+                    attributes = Attributes.init();
                     const token = reader.doc[state..next.?];
                     if (tokenType == Tokens.VerbatimInline) {
                         if (std.mem.startsWith(u8, token, "$$")) {
-                            try attributes.set(djotToken.DisplayMathKey, "");
+                            try attributes.set(allocator, djotToken.DisplayMathKey, "");
                         } else if (std.mem.startsWith(u8, token, "$")) {
-                            try attributes.set(djotToken.InlineMathKey, "");
+                            try attributes.set(allocator, djotToken.InlineMathKey, "");
                         }
                     }
                     var tok = Token.init(tokenType, state, next.?);

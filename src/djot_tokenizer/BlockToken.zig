@@ -60,8 +60,8 @@ pub fn matchBlockToken(allocator: std.mem.Allocator, reader: tokenizer.TextReade
             next = reader.emptyOrWhiteSpace(next) orelse return null;
 
             var token = Token.init(tokenType, initState, next);
-            token.attributes = Attributes.init(allocator);
-            try token.attributes.?.set(attributeKey, reader.select(metaStart, metaEnd));
+            token.attributes = Attributes.init();
+            try token.attributes.?.set(allocator, attributeKey, reader.select(metaStart, metaEnd));
             return .{ .token = token, .state = next };
         },
         tokens.ReferenceDefBlock, tokens.FootnoteDefBlock => {
