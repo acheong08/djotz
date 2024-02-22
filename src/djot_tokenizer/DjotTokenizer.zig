@@ -88,7 +88,6 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, part
                 Tokens.PipeTableSeparator,
             }) |tokenType| {
                 var next = try matchInlineToken(reader, state, Opposite(tokenType));
-                std.debug.print("state: {any}, next: {any}\n", .{ state, next });
                 const forbidClose = ((tokenType == Tokens.EmphasisInline and lastInline.tokenType == Tokens.EmphasisInline) or (tokenType == Tokens.StrongInline and lastInline.tokenType == Tokens.StrongInline)) and lastInline.end == state;
                 if (!forbidClose and next != null and try tokenStack.popForgetUntil(tokenType)) {
                     try tokenStack.closeLevelAt(Token.init(Opposite(tokenType), state, next.?));
@@ -116,7 +115,6 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, part
                     tok.attributes = attributes;
                     try tokenStack.openLevelAt(tok);
                     state = next.?;
-                    std.debug.print("Set state to {any}\n", .{state});
                     continue :inlineParsingLoop;
                 }
             }

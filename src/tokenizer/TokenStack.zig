@@ -83,8 +83,7 @@ pub fn TokenStack(comptime T: type) type {
             const typeLvls: ?[]const usize = self.typeLevels.get(popLvl.firstOrDefault().tokenType);
             if (typeLvls) |stypeLvls| {
                 if (stypeLvls.len > 0) {
-                    try self.typeLevels.put(popLvl.firstOrDefault().tokenType, stypeLvls[0 .. stypeLvls.len - 1]);
-                    self.allocator.free(stypeLvls);
+                    try self.typeLevels.put(popLvl.firstOrDefault().tokenType, stypeLvls);
                 }
             }
         }
@@ -97,8 +96,7 @@ pub fn TokenStack(comptime T: type) type {
             const typeLvls: ?[]const usize = self.typeLevels.get(lastLvlType);
             if (typeLvls) |sTypeLvls| {
                 if (sTypeLvls.len > 0) {
-                    try self.typeLevels.put(lastLvlType, sTypeLvls[0 .. sTypeLvls.len - 1]);
-                    self.allocator.free(sTypeLvls);
+                    try self.typeLevels.put(lastLvlType, sTypeLvls);
                 }
             }
             var popLvl: TokenList(T) = self.levels.pop();
