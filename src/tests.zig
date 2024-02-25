@@ -344,7 +344,7 @@ test "BuildInlineDjotTokens" {
     defer parts.deinit();
     var tokens = std.ArrayList(token.Token(DjotToken.tokens)).init(allocator);
     defer tokens.deinit();
-    try BuildInlineDjotTokens(allocator, "___abc___", &parts, &tokens);
+    try BuildInlineDjotTokens(allocator, "___abc___", parts, &tokens);
     const expected = [_]token.Token(DjotToken.tokens){
         token.Token(DjotToken.tokens){ .jumpToPair = 6, .start = 0, .end = 1, .tokenType = DjotToken.tokens.EmphasisInline, .attributes = null },
         token.Token(DjotToken.tokens){ .jumpToPair = 4, .start = 1, .end = 2, .tokenType = DjotToken.tokens.EmphasisInline, .attributes = null },
