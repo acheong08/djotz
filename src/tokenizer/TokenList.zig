@@ -28,14 +28,14 @@ pub fn TokenList(comptime T: type) type {
 
         pub fn firstOrDefault(self: *const TokenList(T)) Token(T) {
             if (self.items.items.len == 0) {
-                return Token(T).init(defaultValue(T), 0, 0);
+                return Token(T).init(defaultValue(T), 0, 0, null);
             }
             return self.items.items[0];
         }
 
         pub fn lastOrDefault(self: *const TokenList(T)) Token(T) {
             if (self.items.items.len == 0) {
-                return Token(T).init(defaultValue(T), 0, 0);
+                return Token(T).init(defaultValue(T), 0, 0, null);
             }
             return self.items.getLast();
         }

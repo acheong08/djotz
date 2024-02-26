@@ -27,12 +27,12 @@ pub fn matchBlockToken(allocator: std.mem.Allocator, reader: tokenizer.TextReade
         tokens.HeadingBlock => {
             next = reader.byteRepeat(next, '#', 1) orelse return null;
             next = reader.mask(next, tokenizer.SpaceByteMask) orelse return null;
-            return .{ .state = next, .token = Token.init(tokenType, initState, next) };
+            return .{ .state = next, .token = Token.init(tokenType, initState, next, null) };
         },
         tokens.QuoteBlock => {
             next = reader.byteRepeat(next, '>', 1) orelse return null;
             next = reader.mask(next, tokenizer.SpaceNewLineByteMask) orelse return null;
-            return .{ .state = next, .token = Token.init(tokenType, initState, next) };
+            return .{ .state = next, .token = Token.init(tokenType, initState, next, null) };
         },
         tokens.DivBlock, tokens.CodeBlock => {
             var symbol: u8 = undefined;
@@ -51,7 +51,7 @@ pub fn matchBlockToken(allocator: std.mem.Allocator, reader: tokenizer.TextReade
             next = reader.byteRepeat(next, symbol, 3) orelse return null;
             next = reader.maskRepeat(next, tokenizer.SpaceByteMask, 0) orelse return error.MinCountError;
             if (reader.emptyOrWhiteSpace(next)) |end| {
-                return .{ .state = end, .token = Token.init(tokenType, initState, next) };
+                return .{ .state = end, .token = Token.init(tokenType, initState, next, null) };
             }
             const metaStart = next;
             next = reader.maskRepeat(next, NotSpaceByteMask, 1) orelse return error.MinCountError;
@@ -59,8 +59,7 @@ pub fn matchBlockToken(allocator: std.mem.Allocator, reader: tokenizer.TextReade
 
             next = reader.emptyOrWhiteSpace(next) orelse return null;
 
-            var token = Token.init(tokenType, initState, next);
-            token.attributes = Attributes.init();
+            var token = Token.init(tokenType, initState, next, Attributes.init());
             try token.attributes.?.set(allocator, attributeKey, reader.select(metaStart, metaEnd));
             return .{ .token = token, .state = next };
         },
@@ -72,12 +71,12 @@ pub fn matchBlockToken(allocator: std.mem.Allocator, reader: tokenizer.TextReade
             if (std.mem.count(u8, reader.doc[initialState..next], "*") < 3 and std.mem.count(u8, reader.doc[initialState..next], "-") < 3) {
                 return null;
             }
-            return .{ .state = next, .token = Token.init(tokenType, initState, next) };
+            return .{ .state = next, .token = Token.init(tokenType, initState, next, null) };
         },
         tokens.ListItemBlock => {
             inline for ([_]string{ "- [ ] ", "- [x] ", "- [X] ", "+ ", "* ", "- ", ": " }) |simpleToken| {
                 if (reader.token(next, simpleToken)) |simple| {
-                    return .{ .state = simple, .token = Token.init(tokenType, initialState, simple) };
+                    return .{ .state = simple, .token = Token.init(tokenType, initialState, simple, null) };
                 }
             }
             for ([_]tokenizer.ByteMask{ DigitByteMask, LowerAlphaByteMask, UpperAlphaByteMask }) |complexTokenMask| {
@@ -88,9 +87,9 @@ pub fn matchBlockToken(allocator: std.mem.Allocator, reader: tokenizer.TextReade
                 }
                 complexNext = reader.maskRepeat(complexNext, complexTokenMask, 1) orelse continue;
                 if (reader.token(complexNext, ") ")) |ending| {
-                    return .{ .state = ending, .token = Token.init(tokenType, initialState, ending) };
+                    return .{ .state = ending, .token = Token.init(tokenType, initialState, ending, null) };
                 } else if (reader.token(complexNext, ". ")) |ending| {
-                    return .{ .state = ending, .token = Token.init(tokenType, initialState, ending) };
+                    return .{ .state = ending, .token = Token.init(tokenType, initialState, ending, null) };
                 }
             }
             return null;
@@ -106,17 +105,17 @@ pub fn matchBlockToken(allocator: std.mem.Allocator, reader: tokenizer.TextReade
             if (reader.doc[last] != '|') {
                 return null;
             }
-            return .{ .state = initialState, .token = Token.init(tokenType, initialState, initialState) };
+            return .{ .state = initialState, .token = Token.init(tokenType, initialState, initialState, null) };
         },
         tokens.ParagraphBlock => {
             if (reader.isEmpty(next)) {
                 return null;
             }
-            return .{ .state = next, .token = Token.init(tokenType, initialState, next) };
+            return .{ .state = next, .token = Token.init(tokenType, initialState, next, null) };
         },
         tokens.PipeTableCaptionBlock => {
             next = reader.token(next, "^ ") orelse return null;
-            return .{ .state = next, .token = Token.init(tokenType, initialState, next) };
+            return .{ .state = next, .token = Token.init(tokenType, initialState, next, null) };
         },
         else => unreachable,
     }

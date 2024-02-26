@@ -9,13 +9,13 @@ pub fn Token(comptime T: type) type {
         end: usize,
         attributes: ?attributes.Attributes,
 
-        pub fn init(tokenType: T, start: usize, end: usize) Token(T) {
+        pub fn init(tokenType: T, start: usize, end: usize, attr: ?attributes.Attributes) Token(T) {
             return .{
                 .tokenType = tokenType,
                 .jumpToPair = null,
                 .start = start,
                 .end = end,
-                .attributes = null,
+                .attributes = attr,
             };
         }
 

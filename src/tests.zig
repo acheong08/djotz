@@ -81,7 +81,7 @@ test "Token" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
-    var tok = Token.init(0, 0, 0);
+    var tok = Token.init(0, 0, 0, null);
     defer tok.deinit(allocator);
 
     tok.start = 0;
@@ -105,14 +105,14 @@ test "TokenList" {
     var tokens = TokenList(isize).init(allocator);
     defer tokens.deinit();
 
-    try tokens.push(Token.init(1, 0, 1));
-    try tokens.push(Token.init(2, 10, 11));
+    try tokens.push(Token.init(1, 0, 1, null));
+    try tokens.push(Token.init(2, 10, 11, null));
 
     var expected = try allocator.alloc(Token, 3);
     defer allocator.free(expected);
-    expected[0] = Token.init(1, 0, 1);
-    expected[1] = Token.init(0, 1, 10);
-    expected[2] = Token.init(2, 10, 11);
+    expected[0] = Token.init(1, 0, 1, null);
+    expected[1] = Token.init(0, 1, 10, null);
+    expected[2] = Token.init(2, 10, 11, null);
 
     try assert(tokens.items.items.len == 3);
 
@@ -129,20 +129,20 @@ test "TokenStack 1" {
     var stack = TokenStack(isize).init(allocator);
     defer stack.deinit();
 
-    try stack.openLevelAt(Token.init(2, 0, 1));
+    try stack.openLevelAt(Token.init(2, 0, 1, null));
     try assert(stack.levels.items.len == 2);
-    try stack.lastLevel().?.push(Token.init(10, 1, 4));
-    try stack.closeLevelAt(Token.init(2 ^ 1, 10, 11));
+    try stack.lastLevel().?.push(Token.init(10, 1, 4, null));
+    try stack.closeLevelAt(Token.init(2 ^ 1, 10, 11, null));
 
     try assert(stack.lastLevel().?.items.items.len == 4);
 
     var expected = try allocator.alloc(Token, 4);
     defer allocator.free(expected);
-    expected[0] = Token.init(2, 0, 1);
+    expected[0] = Token.init(2, 0, 1, null);
     expected[0].jumpToPair = 3;
-    expected[1] = Token.init(10, 1, 4);
-    expected[2] = Token.init(0, 4, 10);
-    expected[3] = Token.init(2 ^ 1, 10, 11);
+    expected[1] = Token.init(10, 1, 4, null);
+    expected[2] = Token.init(0, 4, 10, null);
+    expected[3] = Token.init(2 ^ 1, 10, 11, null);
     expected[3].jumpToPair = -3;
 
     try assert(stack.lastLevel() != null);
@@ -156,30 +156,30 @@ test "TokenStack 2" {
     var stack = TokenStack(isize).init(allocator);
     defer stack.deinit();
 
-    try stack.openLevelAt(Token.init(2, 0, 0));
-    try stack.openLevelAt(Token.init(4, 0, 1));
-    try stack.openLevelAt(Token.init(6, 1, 2));
-    try stack.openLevelAt(Token.init(8, 2, 3));
+    try stack.openLevelAt(Token.init(2, 0, 0, null));
+    try stack.openLevelAt(Token.init(4, 0, 1, null));
+    try stack.openLevelAt(Token.init(6, 1, 2, null));
+    try stack.openLevelAt(Token.init(8, 2, 3, null));
     var success = try stack.popForgetUntil(10);
     try assert(success == false);
     success = try stack.popForgetUntil(6);
     try assert(success == true);
 
-    try stack.closeLevelAt(Token.init(6 ^ 1, 10, 11));
+    try stack.closeLevelAt(Token.init(6 ^ 1, 10, 11, null));
     try stack.popForget();
-    try stack.closeLevelAt(Token.init(2 ^ 1, 11, 11));
+    try stack.closeLevelAt(Token.init(2 ^ 1, 11, 11, null));
 
     var expected = try allocator.alloc(Token, 6);
     defer allocator.free(expected);
-    expected[0] = Token.init(2, 0, 0);
+    expected[0] = Token.init(2, 0, 0, null);
     expected[0].jumpToPair = 5;
-    expected[1] = Token.init(0, 0, 1);
-    expected[2] = Token.init(6, 1, 2);
+    expected[1] = Token.init(0, 0, 1, null);
+    expected[2] = Token.init(6, 1, 2, null);
     expected[2].jumpToPair = 2;
-    expected[3] = Token.init(0, 2, 10);
-    expected[4] = Token.init(6 ^ 1, 10, 11);
+    expected[3] = Token.init(0, 2, 10, null);
+    expected[4] = Token.init(6 ^ 1, 10, 11, null);
     expected[4].jumpToPair = -2;
-    expected[5] = Token.init(2 ^ 1, 11, 11);
+    expected[5] = Token.init(2 ^ 1, 11, 11, null);
     expected[5].jumpToPair = -5;
 
     try std.testing.expectEqualSlices(Token, expected, stack.lastLevel().?.*.items.items);

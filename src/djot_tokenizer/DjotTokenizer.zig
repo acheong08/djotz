@@ -5,7 +5,8 @@ const Opposite = djotToken.opposite;
 const Token = @import("../tokenizer/Token.zig").Token(Tokens);
 const Range = @import("../tokenizer/Token.zig").Range;
 const TokenStack = @import("../tokenizer/TokenStack.zig").TokenStack(Tokens);
-const TextReader = @import("../tokenizer/TextReader.zig").TextReader;
+const text_reader = @import("../tokenizer/TextReader.zig");
+const TextReader = text_reader.TextReader;
 const matchInlineToken = @import("InlineToken.zig").MatchInlineToken;
 const matchDjotAttribute = @import("Attributes.zig").matchDjotAttribute;
 const Attributes = @import("Attributes.zig").Attributes;
@@ -23,7 +24,7 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, cpar
     defer tokenStack.deinit();
     const leftDocumentPosition = parts.items[0].start;
     const rightDocumentPosition = parts.items[parts.items.len - 1].end;
-    try tokenStack.openLevelAt(Token.init(Tokens.ParagraphBlock, leftDocumentPosition, leftDocumentPosition));
+    try tokenStack.openLevelAt(Token.init(Tokens.ParagraphBlock, leftDocumentPosition, leftDocumentPosition, null));
 
     var reader = TextReader.init(doc);
     var state = parts.items[0].start;
@@ -48,15 +49,13 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, cpar
                     state = next;
                     continue;
                 }
-                try tokenStack.closeLevelAt(Token.init(Opposite(Tokens.VerbatimInline), state, next));
+                try tokenStack.closeLevelAt(Token.init(Opposite(Tokens.VerbatimInline), state, next, null));
                 state = next;
                 continue;
             }
             var attributes = Attributes.init();
             if (try matchDjotAttribute(allocator, reader, state, &attributes)) |next| {
-                var tok = Token.init(Tokens.Attribute, state, next);
-                tok.attributes = attributes;
-                try tokenStack.lastLevel().?.push(tok);
+                try tokenStack.lastLevel().?.push(Token.init(Tokens.Attribute, state, next, attributes));
                 state = next;
                 continue;
             }
@@ -67,7 +66,7 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, cpar
             // EscapedSymbolInline / SmartSymbolInline is non-paired tokens - so we should treat it separately
             for ([_]Tokens{ Tokens.EscapedSymbolInline, Tokens.SmartSymbolInline }) |tokenType| {
                 if (try matchInlineToken(reader, state, tokenType)) |next| {
-                    try tokenStack.lastLevel().?.push(Token.init(tokenType, state, next));
+                    try tokenStack.lastLevel().?.push(Token.init(tokenType, state, next, null));
                     state = next;
                     continue :inlineParsingLoop;
                 }
@@ -94,7 +93,7 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, cpar
                 var next = try matchInlineToken(reader, state, Opposite(tokenType));
                 const forbidClose = ((tokenType == Tokens.EmphasisInline and lastInline.tokenType == Tokens.EmphasisInline) or (tokenType == Tokens.StrongInline and lastInline.tokenType == Tokens.StrongInline)) and lastInline.end == state;
                 if (!forbidClose and next != null and try tokenStack.popForgetUntil(tokenType)) {
-                    try tokenStack.closeLevelAt(Token.init(Opposite(tokenType), state, next.?));
+                    try tokenStack.closeLevelAt(Token.init(Opposite(tokenType), state, next.?, null));
                     state = next.?;
                     continue :inlineParsingLoop;
                 }
@@ -115,7 +114,7 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, cpar
                             try attributes.set(allocator, djotToken.InlineMathKey, "");
                         }
                     }
-                    var tok = Token.init(tokenType, state, next.?);
+                    var tok = Token.init(tokenType, state, next.?, null);
                     tok.attributes = attributes;
                     try tokenStack.openLevelAt(tok);
                     state = next.?;
@@ -126,10 +125,10 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, cpar
         }
     }
     if (tokenStack.lastLevel().?.firstOrDefault().tokenType == Tokens.VerbatimInline) {
-        try tokenStack.closeLevelAt(Token.init(Opposite(Tokens.VerbatimInline), rightDocumentPosition, rightDocumentPosition));
+        try tokenStack.closeLevelAt(Token.init(Opposite(Tokens.VerbatimInline), rightDocumentPosition, rightDocumentPosition, null));
     }
     _ = try tokenStack.popForgetUntil(Tokens.ParagraphBlock);
-    try tokenStack.closeLevelAt(Token.init(Tokens.ParagraphBlock, rightDocumentPosition, rightDocumentPosition));
+    try tokenStack.closeLevelAt(Token.init(Tokens.ParagraphBlock, rightDocumentPosition, rightDocumentPosition, null));
     for (tokenStack.lastLevel().?.*.items.items, 0..) |token, i| {
         if (i == 0) {
             continue;
@@ -141,6 +140,9 @@ pub fn BuildInlineDjotTokens(allocator: std.mem.Allocator, doc: []const u8, cpar
 
 pub const BuildDjotTokens = struct {
     allocator: std.mem.Allocator,
+
+    doc: []const u8,
+
     lineTokenizer: LineTokenizer,
     inlineParts: std.ArrayList(Range),
     blockLineOffset: std.ArrayList(usize),
@@ -152,6 +154,9 @@ pub const BuildDjotTokens = struct {
     pub fn init(allocator: std.mem.Allocator, doc: []const u8) !BuildDjotTokens {
         var self = BuildDjotTokens{};
         self.allocator = allocator;
+
+        self.doc = doc;
+
         self.lineTokenizer = LineTokenizer.init(doc);
         self.inlineParts = std.ArrayList(Range).init(allocator);
         self.blockLineOffset = std.ArrayList(usize).init(allocator);
@@ -159,8 +164,8 @@ pub const BuildDjotTokens = struct {
 
         self.blockTokens = std.ArrayList(Token).init(allocator);
         self.finalTokens = std.ArrayList(Token).init(allocator);
-        self.blockTokens.append(Token.init(Tokens.DocumentBlock, 0, 0));
-        self.finalTokens.append(Token.init(Tokens.DocumentBlock, 0, 0));
+        self.blockTokens.append(Token.init(Tokens.DocumentBlock, 0, 0, null));
+        self.finalTokens.append(Token.init(Tokens.DocumentBlock, 0, 0, null));
         return self;
     }
     fn popMetadata(self: *BuildDjotTokens) void {
@@ -197,8 +202,33 @@ pub const BuildDjotTokens = struct {
         }
     }
 
-    pub fn build(self: *BuildDjotTokens, doc: []const u8) !?TokenList {
-        _ = doc;
-        _ = self;
+    pub fn build(self: *BuildDjotTokens) !?TokenList {
+        while (true) {
+            const line = self.lineTokenizer.scan() orelse break;
+            const reader = TextReader.init(self.doc[0..line.end]);
+            const state = line.start;
+            const lastBlock = self.blockTokens.getLast();
+            const lastBlockType = lastBlock.tokenType;
+
+            if (inAny(Tokens, lastBlockType, []Tokens{ Tokens.DocumentBlock, Tokens.QuoteBlock, Tokens.ListItemBlock, Tokens.DivBlock })) {
+                const next = reader.maskRepeat(state, text_reader.SpaceByteMask, 0) orelse return error.MinCountErr;
+                var attributes = Attributes.init();
+                if (try matchDjotAttribute(self.allocator, reader, next, &attributes)) |nnext| {
+                    if (reader.emptyOrWhiteSpace(nnext)) |nnnext| {
+                        self.finalTokens.append(Token.init(Tokens.Attribute, state, nnnext, attributes));
+                        continue;
+                    }
+                }
+            }
+        }
     }
 };
+
+fn inAny(comptime T: type, value: T, array: []T) bool {
+    for (array) |item| {
+        if (item == value) {
+            return true;
+        }
+    }
+    return false;
+}
