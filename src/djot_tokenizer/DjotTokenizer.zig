@@ -9,6 +9,7 @@ const text_reader = @import("../tokenizer/TextReader.zig");
 const TextReader = text_reader.TextReader;
 const matchInlineToken = @import("InlineToken.zig").MatchInlineToken;
 const matchDjotAttribute = @import("Attributes.zig").matchDjotAttribute;
+const matchBlockToken = @import("BlockToken.zig").matchBlockToken;
 const Attributes = @import("Attributes.zig").Attributes;
 const inlineTokens = @import("InlineToken.zig");
 const TokenList = @import("../tokenizer/TokenList.zig").TokenList(Tokens);
@@ -207,8 +208,8 @@ pub const BuildDjotTokens = struct {
             const line = self.lineTokenizer.scan() orelse break;
             const reader = TextReader.init(self.doc[0..line.end]);
             const state = line.start;
-            const lastBlock = self.blockTokens.getLast();
-            const lastBlockType = lastBlock.tokenType;
+            var lastBlock = self.blockTokens.getLast();
+            var lastBlockType = lastBlock.tokenType;
 
             if (inAny(Tokens, lastBlockType, []Tokens{ Tokens.DocumentBlock, Tokens.QuoteBlock, Tokens.ListItemBlock, Tokens.DivBlock })) {
                 const next = reader.maskRepeat(state, text_reader.SpaceByteMask, 0) orelse return error.MinCountErr;
@@ -218,6 +219,79 @@ pub const BuildDjotTokens = struct {
                         self.finalTokens.append(Token.init(Tokens.Attribute, state, nnnext, attributes));
                         continue;
                     }
+                }
+            }
+
+            var lastDivAt = -1;
+            for (self.blockTokens.items, 0..) |blockToken, i| {
+                if (blockToken.tokenType == Tokens.DivBlock) {
+                    lastDivAt = i;
+                }
+            }
+            var resetBlockAt = 0;
+            var potentialReset = false;
+            for (self.blockTokens.items, 0..) |blockToken, i| {
+                switch (blockToken.tokenType) {
+                    .ListItemBlock, .FootnoteDefBlock => {
+                        const next = reader.maskRepat(state, text_reader.SpaceByteMask, 0) orelse return error.MinCountErr;
+                        if (!reader.emptyOrWhiteSpace(next) and next - line.start <= self.blockLineOffset.items[i]) {
+                            potentialReset = true;
+                            break;
+                        }
+                        resetBlockAt = i;
+                    },
+                    .ReferenceDefBlock => {
+                        const next = reader.maskRepat(state, text_reader.SpaceByteMask, 0) orelse return error.MinCountErr;
+                        if (next - line.start <= self.blockLineOffset.items[i]) {
+                            potentialReset = true;
+                            break;
+                        }
+                        resetBlockAt = i;
+                    },
+                    .QuoteBlock, .HeadingBlock => {
+                        const next = try matchBlockToken(self.allocator, reader, blockToken.tokenType) orelse {
+                            potentialReset = true;
+                            break;
+                        };
+                        state = next.state;
+                        resetBlockAt = i;
+                    },
+                    .ParagraphBlock, .HeadingBlock, .PipeTableCaptionBlock => {
+                        resetBlockAt = i;
+                    },
+                }
+            }
+            if ((lastBlockType != Tokens.CodeBlock or potentialReset) and reader.emptyOrWhiteSpace(state)) {
+                self.closeBlockLevelsUntil(state, state, resetBlockAt);
+                continue;
+            }
+            if (lastBlockType == Tokens.ReferenceDefBlock) {
+                self.closeBlockLevelsUntil(state, state, resetBlockAt);
+            } else if (lastBlockType == Tokens.CodeBlock) {
+                const token = try matchBlockToken(self.allocator, reader, state, Tokens.CodeBlock);
+                if (token != null and lastBlock.prefixLength(self.doc, '`' <= token.?.token.prefixLength(self.doc, '`'))) {
+                    self.closeBlockLevelsUntil(token.?.token.start, token.?.token.end, self.blockTokens.items.len - 2);
+                } else {
+                    self.inlineParts.append(Range{ .start = state, .end = line.end });
+                }
+                continue;
+            }
+            if (lastDivAt != -1) {
+                if (try matchBlockToken(reader, state, Tokens.DivBlock)) |token| {
+                    if (lastBlock.length() <= token.token.length() and token.token.attributes != null and token.token.attributes.?.size() == 0) {
+                        self.closeBlockLevelsUntil(token.token.start, token.token.end, lastDivAt - 1);
+                        continue;
+                    }
+                }
+            }
+
+            blockParsingLoop: while (true) {
+                lastBlock = self.blockTokens.getLast();
+                lastBlockType = lastBlock.tokenType;
+                if (try matchBlockToken(reader, state, Tokens.ThematicBreakToken)) |tbt| {
+                    try self.finalTokens.append(Token.init(Tokens.ThematicBreakToken, tbt.token.start, tbt.token.end, null));
+                    state = tbt.state;
+                    continue :blockParsingLoop;
                 }
             }
         }
