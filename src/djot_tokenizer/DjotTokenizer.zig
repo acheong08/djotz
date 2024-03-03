@@ -150,7 +150,7 @@ pub const BuildDjotTokens = struct {
     blockTokenOffset: std.ArrayList(usize),
 
     blockTokens: std.ArrayList(Token),
-    finalTokens: std.ArrayList(Token),
+    finalTokens: TokenList,
 
     pub fn init(allocator: std.mem.Allocator, doc: []const u8) !BuildDjotTokens {
         var self = BuildDjotTokens{};
@@ -164,10 +164,17 @@ pub const BuildDjotTokens = struct {
         self.blockTokenOffset = std.ArrayList(usize).init(allocator);
 
         self.blockTokens = std.ArrayList(Token).init(allocator);
-        self.finalTokens = std.ArrayList(Token).init(allocator);
+        self.finalTokens = TokenList.init(allocator);
         self.blockTokens.append(Token.init(Tokens.DocumentBlock, 0, 0, null));
-        self.finalTokens.append(Token.init(Tokens.DocumentBlock, 0, 0, null));
+        self.finalTokens.push(Token.init(Tokens.DocumentBlock, 0, 0, null));
         return self;
+    }
+    pub fn deinit(self: *BuildDjotTokens) void {
+        self.inlineParts.deinit();
+        self.blockLineOffset.deinit();
+        self.blockTokenOffset.deinit();
+        self.blockTokens.deinit();
+        // finalTokens is not deinitialized as it's returned by build
     }
     fn popMetadata(self: *BuildDjotTokens) void {
         self.blockLineOffset.pop();
@@ -175,7 +182,7 @@ pub const BuildDjotTokens = struct {
         self.blockTokens.pop();
     }
     fn openBlockLevel(self: *BuildDjotTokens, token: Token) !void {
-        try self.finalTokens.append(token);
+        try self.finalTokens.push(token);
         try self.blockTokenOffset.append(self.blockTokens.items.len - 1);
         try self.blockTokens.append(token);
     }
@@ -183,19 +190,19 @@ pub const BuildDjotTokens = struct {
     fn closeBlockLevelsUntil(self: *BuildDjotTokens, start: usize, end: usize, level: usize) !void {
         if (self.inlineParts.items.len != 0 and self.blockTokens.getLast().tokenType == Tokens.CodeBlock) {
             for (self.inlineParts.items) |part| {
-                try self.finalTokens.append(Token.init(Tokens.None, part.start, part.end));
+                try self.finalTokens.push(Token.init(Tokens.None, part.start, part.end));
             }
             self.inlineParts.clearAndFree();
         } else if (self.inlineParts.items.len != 0) {
             var inlineToks = std.ArrayList(Token).init(self.allocator);
             defer inlineToks.deinit();
             try BuildInlineDjotTokens(self.allocator, self.inlineParts, &inlineToks);
-            try self.finalTokens.appendSlice(inlineToks.items);
+            try self.finalTokens.pushSlice(inlineToks.items);
             self.inlineParts.clearAndFree();
         }
         var i = self.blockTokens.items.len - 1;
         while (i > level) : (i -= 1) {
-            try self.finalTokens.append(Token.init(Opposite(self.blockTokens.items[i].tokenType), start, end));
+            try self.finalTokens.push(Token.init(Opposite(self.blockTokens.items[i].tokenType), start, end));
             const delta = self.finalTokens.items.len - 1 - self.blockTokenOffset.items[i];
             self.finalTokens.items[self.blockTokenOffset.items[i]].jumpToPair = delta;
             self.finalTokens.items[self.finalTokens.items.len - 1].jumpToPair = -delta;
@@ -216,7 +223,7 @@ pub const BuildDjotTokens = struct {
                 var attributes = Attributes.init();
                 if (try matchDjotAttribute(self.allocator, reader, next, &attributes)) |nnext| {
                     if (reader.emptyOrWhiteSpace(nnext)) |nnnext| {
-                        self.finalTokens.append(Token.init(Tokens.Attribute, state, nnnext, attributes));
+                        self.finalTokens.push(Token.init(Tokens.Attribute, state, nnnext, attributes));
                         continue;
                     }
                 }
@@ -289,12 +296,69 @@ pub const BuildDjotTokens = struct {
                 lastBlock = self.blockTokens.getLast();
                 lastBlockType = lastBlock.tokenType;
                 if (try matchBlockToken(reader, state, Tokens.ThematicBreakToken)) |tbt| {
-                    try self.finalTokens.append(Token.init(Tokens.ThematicBreakToken, tbt.token.start, tbt.token.end, null));
+                    try self.finalTokens.push(Token.init(Tokens.ThematicBreakToken, tbt.token.start, tbt.token.end, null));
                     state = tbt.state;
                     continue :blockParsingLoop;
                 }
+
+                state = reader.maskRepeat(state, text_reader.SpaceByteMask, 0) orelse return error.MinCountErr;
+
+                var resetListPosition = -1;
+                var i = self.blockTokens.items.len - 1;
+                while (i >= 0) : (i -= 1) {
+                    if (self.blockTokens.items[i].tokenType == Tokens.ListItemBlock and self.blockLineOffset.items[i] >= state - line.start) {
+                        resetListPosition = i;
+                    }
+                }
+                const listBlock = try matchBlockToken(self.allocator, reader, state, Tokens.ListItemBlock);
+                if (listBlock != null and !inAny(Tokens, lastBlockType, []Tokens{ .ParagraphBlock, .HeadingBlock, .CodeBlock })) {
+                    if (resetListPosition != -1) {
+                        try self.closeBlockLevelsUntil(state, state, resetListPosition - 1);
+                    }
+                    if (resetListPosition != -1 or !inAny(Tokens, lastBlockType, []Tokens{ .ParagraphBlock, .HeadingBlock, .CodeBlock })) {
+                        try self.openBlockLevel(Token.init(Tokens.ListItemBlock, listBlock.?.token.start, listBlock.?.token.end, null));
+                        self.blockLineOffset.append(listBlock.?.token.start - line.start);
+                        state = listBlock.?.state;
+                        continue :blockParsingLoop;
+                    }
+                }
+                switch (lastBlockType) {
+                    .ParagraphBlock, .HeadingBlock, .PipeTableCaptionBlock, .ReferenceDefBlock => {
+                        self.inlineParts.append(Range{ .start = state, .end = line.end });
+                        break :blockParsingLoop;
+                    },
+                    .PipeTableBlock => {
+                        self.inlineParts.append(Range{ .start = state, .end = line.end });
+                        self.closeBlockLevelsUntil(line.start, line.end, self.blockTokens.items.len - 2);
+                        break :blockParsingLoop;
+                    },
+                    .CodeBlock => {
+                        break :blockParsingLoop;
+                    },
+                }
+                if (resetListPosition != -1) {
+                    try self.closeBlockLevelsUntil(state, state, resetListPosition - 1);
+                    continue :blockParsingLoop;
+                }
+                for ([_]Tokens{ .FootnoteDefBlock, .ReferenceDefBlock, .HeadingBlock, .QuoteBlock, .ListItemBlock, .CodeBlock, .DivBlock, .PipeTableBlock, .PipeTableCaptionBlock, .ParagraphBlock }) |tokenType| {
+                    if (lastBlockType != .DocumentBlock and (tokenType == .FootnoteDefBlock or tokenType == .ReferenceDefBlock)) {
+                        continue;
+                    }
+                    const block = try matchBlockToken(self.allocator, reader, state, tokenType) orelse {
+                        continue;
+                    };
+                    if (tokenType == .PipeTableCaptionBlock and (self.finalTokens.items.len == 0 or self.finalTokens.getLast().tokenType != Opposite(Tokens.PipeTableBlock))) {
+                        continue;
+                    }
+                    try self.openBlockLevel(block.token);
+                    state = block.state;
+                    continue :blockParsingLoop;
+                }
+                break;
             }
         }
+        self.closeBlockLevelsUntil(self.doc.len, self.doc.len, -1);
+        return self.finalTokens;
     }
 };
 
